@@ -43,9 +43,12 @@ type JavaRuntimeJSON struct {
 
 // MetaInfo represents metadata about the scan
 type MetaInfo struct {
-	ScanTimestamp string `json:"scan_ts"`
-	ComputerName  string `json:"computer_name"`
-	UserName      string `json:"user_name"`
+	ScanTimestamp string  `json:"scan_ts"`
+	ComputerName  string  `json:"computer_name"`
+	UserName      string  `json:"user_name"`
+	ScanDuration  string  `json:"scan_duration"`
+	HasOracleJDK  bool    `json:"has_oracle_jdk"`
+	CountResult   int     `json:"count_result"`
 }
 
 // JSONOutput represents the root JSON output structure
@@ -166,35 +169,6 @@ func printResult(result *JavaResult) {
 	}
 }
 
-// printJSONResult prints the results in JSON format
-func printJSONResult(results []*JavaResult) {
-	output := JSONOutput{
-		Runtimes: make([]JavaRuntimeJSON, 0),
-	}
-
-	for _, result := range results {
-		runtime := JavaRuntimeJSON{
-			JavaExecutable: result.Path,
-		}
-
-		if result.Properties != nil && result.Error == nil && result.ReturnCode == 0 {
-			runtime.JavaVersion = result.Properties.Version
-			runtime.JavaVendor = result.Properties.Vendor
-			runtime.JavaRuntime = result.Properties.RuntimeName
-			runtime.IsOracle = strings.Contains(result.Properties.Vendor, "Oracle")
-		}
-
-		output.Runtimes = append(output.Runtimes, runtime)
-	}
-
-	jsonData, err := json.MarshalIndent(output, "", "  ")
-	if err != nil {
-		logf("Error generating JSON output: %v\n", err)
-		return
-	}
-	printf("%s\n", jsonData)
-}
-
 // Find searches for java executables starting from the specified path
 func (f *JavaFinder) Find() ([]*JavaResult, error) {
 	if f.verbose {
@@ -243,7 +217,35 @@ func (f *JavaFinder) Find() ([]*JavaResult, error) {
 	return results, err
 }
 
-// getComputerName returns the computer name based on the operating system
+// formatDurationISO8601 formats a duration according to ISO8601 with millisecond precision
+func formatDurationISO8601(d time.Duration) string {
+	d = d.Round(time.Millisecond)
+	h := d / time.Hour
+	d -= h * time.Hour
+	m := d / time.Minute
+	d -= m * time.Minute
+	s := d / time.Second
+	d -= s * time.Second
+	ms := d / time.Millisecond
+
+	var result strings.Builder
+	result.WriteString("PT")
+	if h > 0 {
+		result.WriteString(fmt.Sprintf("%dH", h))
+	}
+	if m > 0 {
+		result.WriteString(fmt.Sprintf("%dM", m))
+	}
+	if s > 0 || ms > 0 || (h == 0 && m == 0) {
+		if ms > 0 {
+			result.WriteString(fmt.Sprintf("%d.%03dS", s, ms))
+		} else {
+			result.WriteString(fmt.Sprintf("%dS", s))
+		}
+	}
+	return result.String()
+}
+
 func getComputerName() string {
 	switch runtime.GOOS {
 	case "darwin":
@@ -273,26 +275,6 @@ func getComputerName() string {
 	return "unknown"
 }
 
-func getMachineInfo() (MetaInfo, error) {
-	info := MetaInfo{}
-
-	// Get computer name using OS-specific method
-	info.ComputerName = getComputerName()
-
-	// Get username (works on all platforms)
-	currentUser, err := user.Current()
-	if err != nil {
-		info.UserName = "unknown"
-	} else {
-		info.UserName = currentUser.Username
-	}
-
-	// Get current timestamp in ISO 8601 format
-	info.ScanTimestamp = time.Now().UTC().Format(time.RFC3339)
-
-	return info, nil
-}
-
 func main() {
 	var startPath string
 	var maxDepth int
@@ -315,6 +297,7 @@ func main() {
 	}
 
 	finder := NewJavaFinder(absPath, maxDepth, verbose, evaluate)
+	startTime := time.Now()
 	results, err := finder.Find()
 	if err != nil {
 		logf("Error during search: %v\n", err)
@@ -323,13 +306,23 @@ func main() {
 
 	if jsonOutput {
 		// Get meta information
-		meta, err := getMachineInfo()
-		if err != nil {
-			logf("Warning: Could not get complete machine info: %v\n", err)
+		currentUser, _ := user.Current()
+		username := "unknown"
+		if currentUser != nil {
+			username = currentUser.Username
 		}
 
+		hasOracle := false
+		duration := formatDurationISO8601(time.Since(startTime))
 		output := JSONOutput{
-			Meta:     meta,
+			Meta: MetaInfo{
+				ScanTimestamp: time.Now().UTC().Format(time.RFC3339),
+				ComputerName:  getComputerName(),
+				UserName:      username,
+				ScanDuration:  duration,
+				HasOracleJDK:  false,
+				CountResult:   len(results),
+			},
 			Runtimes: make([]JavaRuntimeJSON, 0),
 		}
 
@@ -343,16 +336,23 @@ func main() {
 				runtime.JavaVendor = result.Properties.Vendor
 				runtime.JavaRuntime = result.Properties.RuntimeName
 				runtime.IsOracle = strings.Contains(result.Properties.Vendor, "Oracle")
+				if runtime.IsOracle {
+					hasOracle = true
+				}
 			}
 
 			output.Runtimes = append(output.Runtimes, runtime)
 		}
+
+		// Update hasOracle after scanning all results
+		output.Meta.HasOracleJDK = hasOracle
 
 		jsonData, err := json.MarshalIndent(output, "", "  ")
 		if err != nil {
 			logf("Error generating JSON output: %v\n", err)
 			os.Exit(1)
 		}
+
 		fmt.Println(string(jsonData))
 	} else {
 		for _, result := range results {
