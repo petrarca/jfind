@@ -6,8 +6,9 @@ import (
 )
 
 type JavaProperties struct {
-	Version string
-	Vendor  string
+	Version     string
+	Vendor      string
+	RuntimeName string
 }
 
 func ParseJavaProperties(input string) *JavaProperties {
@@ -30,6 +31,8 @@ func ParseJavaProperties(input string) *JavaProperties {
 				props.Version = value
 			case "java.vendor":
 				props.Vendor = value
+			case "java.runtime.name":
+				props.RuntimeName = value
 			}
 		}
 	}

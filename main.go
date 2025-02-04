@@ -127,6 +127,9 @@ func printResult(result *JavaResult) {
 	if result.Properties != nil {
 		printf("Java version: %s\n", result.Properties.Version)
 		printf("Java vendor: %s\n", result.Properties.Vendor)
+		if result.Properties.RuntimeName != "" {
+			printf("Java runtime name: %s\n", result.Properties.RuntimeName)
+		}
 	}
 	
 	if len(result.Warnings) > 0 {
