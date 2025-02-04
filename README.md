@@ -29,7 +29,7 @@ make build-all    # Build for all supported platforms
 
 Basic usage:
 ```bash
-./jfind [options]
+jfind [options] [-post[=URL]]
 ```
 
 ### Options
@@ -37,24 +37,35 @@ Basic usage:
 - `-path string`: Start path for searching (default ".")
 - `-depth int`: Maximum depth to search (-1 for unlimited)
 - `-verbose`: Enable verbose output
-- `-eval`: Evaluate found Java executables by running java -version
-- `-json`: Output results in JSON format on stdout
+- `-eval`: Evaluate found java executables
+- `-json`: Output results in JSON format
+- `-post`: Post JSON output to server (implies --json). With optional URL parameter (default http://localhost:8000/jfind)
 
 ### Examples
 
 Find Java installations in current directory:
 ```bash
-./jfind
+jfind
 ```
 
 Find and evaluate Java installations with JSON output:
 ```bash
-./jfind -eval -json
+jfind -eval -json
 ```
 
 Search in specific directory with depth limit:
 ```bash
-./jfind -path /usr/local -depth 2
+jfind -path /usr/local -depth 2
+```
+
+Find Java installations and post results to default server:
+```bash
+jfind -eval -post
+```
+
+Find Java installations and post results to custom server:
+```bash
+jfind -eval -post=http://myserver.com:8080/java
 ```
 
 ### Output Formats

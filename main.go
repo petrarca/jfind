@@ -5,6 +5,9 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
+	"net"
+	"net/http"
 	"os"
 	"os/exec"
 	"os/user"
@@ -12,6 +15,10 @@ import (
 	"runtime"
 	"strings"
 	"time"
+)
+
+const (
+	defaultPostURL = "http://localhost:8080/jfind"
 )
 
 // JavaFinder represents a finder for Java executables
@@ -43,12 +50,12 @@ type JavaRuntimeJSON struct {
 
 // MetaInfo represents metadata about the scan
 type MetaInfo struct {
-	ScanTimestamp string  `json:"scan_ts"`
-	ComputerName  string  `json:"computer_name"`
-	UserName      string  `json:"user_name"`
-	ScanDuration  string  `json:"scan_duration"`
-	HasOracleJDK  bool    `json:"has_oracle_jdk"`
-	CountResult   int     `json:"count_result"`
+	ScanTimestamp string `json:"scan_ts"`
+	ComputerName  string `json:"computer_name"`
+	UserName      string `json:"user_name"`
+	ScanDuration  string `json:"scan_duration"`
+	HasOracleJDK  bool   `json:"has_oracle_jdk"`
+	CountResult   int    `json:"count_result"`
 }
 
 // JSONOutput represents the root JSON output structure
@@ -275,19 +282,58 @@ func getComputerName() string {
 	return "unknown"
 }
 
+// sendJSON sends the JSON payload to the specified URL via HTTP POST
+func sendJSON(jsonData []byte, url string) error {
+	resp, err := http.Post(url, "application/json", bytes.NewBuffer(jsonData))
+	if err != nil {
+		// Check if it's a connection error
+		if netErr, ok := err.(*net.OpError); ok {
+			return fmt.Errorf("failed to connect to server at %s: %v", url, netErr)
+		}
+		return fmt.Errorf("failed to send JSON to %s: %v", url, err)
+	}
+	defer resp.Body.Close()
+
+	// Read response body for error details
+	body, _ := io.ReadAll(resp.Body)
+
+	if resp.StatusCode != http.StatusOK {
+		if len(body) > 0 {
+			return fmt.Errorf("server returned %s: %s", resp.Status, string(body))
+		}
+		return fmt.Errorf("server returned %s", resp.Status)
+	}
+
+	return nil
+}
+
 func main() {
 	var startPath string
 	var maxDepth int
 	var verbose bool
 	var evaluate bool
 	var jsonOutput bool
+	var doPost bool
 
 	flag.StringVar(&startPath, "path", ".", "Start path for searching")
 	flag.IntVar(&maxDepth, "depth", -1, "Maximum depth to search (-1 for unlimited)")
 	flag.BoolVar(&verbose, "verbose", false, "Enable verbose output")
 	flag.BoolVar(&evaluate, "eval", false, "Evaluate found java executables")
 	flag.BoolVar(&jsonOutput, "json", false, "Output results in JSON format")
+	flag.BoolVar(&doPost, "post", false, "Post JSON output to server (implies --json)")
 	flag.Parse()
+
+	// Get optional URL from remaining args or use default
+	var postURL string
+	args := flag.Args()
+	if doPost {
+		jsonOutput = true
+		if len(args) > 0 {
+			postURL = args[0]
+		} else {
+			postURL = defaultPostURL
+		}
+	}
 
 	// Convert relative path to absolute
 	absPath, err := filepath.Abs(startPath)
@@ -353,7 +399,16 @@ func main() {
 			os.Exit(1)
 		}
 
-		fmt.Println(string(jsonData))
+		if doPost {
+			logf("Posting JSON to %s...\n", postURL)
+			if err := sendJSON(jsonData, postURL); err != nil {
+				logf("Error: %v\n", err)
+				os.Exit(1)
+			}
+			logf("Successfully posted JSON to %s\n", postURL)
+		} else {
+			fmt.Println(string(jsonData))
+		}
 	} else {
 		for _, result := range results {
 			printResult(result)
