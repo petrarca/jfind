@@ -27,6 +27,7 @@ type JavaFinder struct {
 	maxDepth  int // -1 means unlimited
 	verbose   bool
 	evaluate  bool
+	scanned   int
 }
 
 // JavaResult represents the result of evaluating a Java executable
@@ -56,6 +57,7 @@ type MetaInfo struct {
 	ScanDuration  string `json:"scan_duration"`
 	HasOracleJDK  bool   `json:"has_oracle_jdk"`
 	CountResult   int    `json:"count_result"`
+	ScannedDirs   int    `json:"scanned_dirs"`
 }
 
 // JSONOutput represents the root JSON output structure
@@ -178,20 +180,35 @@ func printResult(result *JavaResult) {
 
 // Find searches for java executables starting from the specified path
 func (f *JavaFinder) Find() ([]*JavaResult, error) {
+	f.scanned = 0 // Reset counter
 	if f.verbose {
 		logf("Start looking for java in %s (scanning subdirectories)\n", f.startPath)
 	}
-
 	var results []*JavaResult
 
 	err := filepath.Walk(f.startPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
-			return nil // skip errors, continue walking
+			if os.IsPermission(err) {
+				if f.verbose {
+					logf("Permission denied: %s\n", path)
+				}
+				return filepath.SkipDir
+			}
+			// Skip other errors but log them in verbose mode
+			if f.verbose {
+				logf("Error accessing %s: %v\n", path, err)
+			}
+			return nil
 		}
 
 		// Print directory being scanned in verbose mode
 		if f.verbose && info.IsDir() {
 			logf("Scanning: %s\n", path)
+		}
+
+		// Count directories as we scan
+		if info.IsDir() {
+			f.scanned++
 		}
 
 		// Check depth
@@ -368,6 +385,7 @@ func main() {
 				ScanDuration:  duration,
 				HasOracleJDK:  false,
 				CountResult:   len(results),
+				ScannedDirs:   finder.scanned,
 			},
 			Runtimes: make([]JavaRuntimeJSON, 0),
 		}

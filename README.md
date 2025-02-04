@@ -81,33 +81,32 @@ Warning: Oracle vendor detected
 
 When an Oracle JDK is detected, a warning message is printed to alert the user.
 
-#### JSON Output
+#### JSON Output (-json or -post)
+
+The JSON output includes metadata about the scan and the results:
+
 ```json
 {
   "meta": {
-    "scan_ts": "2025-02-04T13:27:25Z",
-    "computer_name": "Stanford",
-    "user_name": "username",
-    "scan_duration": "PT2.345S",
-    "has_oracle_jdk": true,
-    "count_result": 1
+    "scan_ts": "2025-02-04T15:12:01Z",      // Scan timestamp in UTC
+    "computer_name": "hostname",             // Name of the computer
+    "user_name": "username",                 // Name of the user
+    "scan_duration": "PT2.345S",            // Duration in ISO8601 format
+    "has_oracle_jdk": false,                // Whether Oracle JDK was found
+    "count_result": 2,                      // Number of Java installations found
+    "scanned_dirs": 56                      // Number of directories scanned
   },
   "result": [
     {
-      "java.executable": "/path/to/java",
-      "java.version": "11.0.12",
-      "java.vendor": "Oracle Corporation",
-      "java.runtime.name": "Java(TM) SE Runtime Environment",
-      "is_oracle": true    // Set to true when Oracle JDK is detected
+      "java_executable": "/path/to/java",    // Path to Java executable
+      "java_version": "1.8.0_292",          // Java version (if -eval used)
+      "java_vendor": "Oracle Corporation",   // Java vendor (if -eval used)
+      "java_runtime": "Java(TM) SE Runtime", // Runtime name (if -eval used)
+      "is_oracle": true                      // Whether it's Oracle Java
     }
   ]
 }
 ```
-
-The `is_oracle` field in JSON output will be:
-- `true` when an Oracle JDK is detected
-- `false` for other JDK vendors
-- Omitted when `-eval` is not specified
 
 ## Development
 
