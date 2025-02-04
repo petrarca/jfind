@@ -38,6 +38,7 @@ type JavaResult struct {
 	StdErr     string
 	ReturnCode int
 	Error      error
+	Evaluated  bool
 }
 
 // JavaRuntimeJSON represents a single Java runtime for JSON output
@@ -119,10 +120,11 @@ func (f *JavaFinder) getPathDepth(path string) int {
 // evaluateJava runs java -version and returns the result
 func (f *JavaFinder) evaluateJava(javaPath string) JavaResult {
 	result := JavaResult{
-		Path: javaPath,
+		Path:      javaPath,
+		Evaluated: true,
 	}
 
-	cmd := exec.Command(javaPath, "-XshowSettings:properties", "--version")
+	cmd := exec.Command(javaPath, "-XshowSettings:properties", "-version")
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
@@ -151,29 +153,27 @@ func (f *JavaFinder) evaluateJava(javaPath string) JavaResult {
 
 // printResult prints the results of evaluating a Java executable
 func printResult(result *JavaResult) {
-	if result.Error != nil {
-		printf("Failed to execute: %v\n", result.Error)
-		return
-	}
-
-	if result.ReturnCode != 0 {
-		printf("Command failed with return code: %d\n", result.ReturnCode)
-		return
-	}
-
 	printf("Java executable: %s\n", result.Path)
+
+	if !result.Evaluated {
+		return
+	}
+
+	if result.Error != nil || result.ReturnCode != 0 {
+		printf("Failed to execute: %v\n", result.Error)
+		if result.ReturnCode != 0 {
+			printf("Exit code: %d\n", result.ReturnCode)
+		}
+		return
+	}
 
 	if result.Properties != nil {
 		printf("Java version: %s\n", result.Properties.Version)
 		printf("Java vendor: %s\n", result.Properties.Vendor)
-		if result.Properties.RuntimeName != "" {
-			printf("Java runtime name: %s\n", result.Properties.RuntimeName)
-		}
-	}
+		printf("Java runtime name: %s\n", result.Properties.RuntimeName)
 
-	if len(result.Warnings) > 0 {
-		for _, warning := range result.Warnings {
-			printf("%s\n", warning)
+		if strings.Contains(result.Properties.Vendor, "Oracle") {
+			printf("Warning: Oracle JDK detected\n")
 		}
 	}
 }
@@ -219,22 +219,16 @@ func (f *JavaFinder) Find() ([]*JavaResult, error) {
 			return nil
 		}
 
-		// Check if file is executable and matches java pattern
-		if !info.IsDir() && isExecutable(info) && isJavaExecutable(filepath.Base(path)) {
-			// Always log the executable path to stderr when found
-			logf("%s\n", path)
-
+		// Check if file is executable and named 'java'
+		if !info.IsDir() && info.Name() == "java" && isExecutable(info) {
 			if f.evaluate {
 				result := f.evaluateJava(path)
 				results = append(results, &result)
 			} else {
-				// For non-evaluated executables, create a basic result
-				result := JavaResult{
-					Path: path,
-				}
-				results = append(results, &result)
+				results = append(results, &JavaResult{Path: path})
 			}
 		}
+
 		return nil
 	})
 
