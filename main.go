@@ -43,10 +43,10 @@ type JavaResult struct {
 // JavaRuntimeJSON represents a single Java runtime for JSON output
 type JavaRuntimeJSON struct {
 	JavaExecutable string `json:"java_executable"`
-	JavaVersion    string `json:"java_version,omitempty"`
-	JavaVendor     string `json:"java_vendor,omitempty"`
 	JavaRuntime    string `json:"java_runtime,omitempty"`
+	JavaVendor     string `json:"java_vendor,omitempty"`
 	IsOracle       bool   `json:"is_oracle,omitempty"`
+	JavaVersion    string `json:"java_version,omitempty"`
 	VersionMajor   int    `json:"java_version_major,omitempty"`
 	VersionUpdate  int    `json:"java_version_update,omitempty"`
 	ExecFailed     bool   `json:"exec_failed,omitempty"`
