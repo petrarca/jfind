@@ -22,7 +22,8 @@ type JavaFinder struct {
 // JavaResult represents the result of evaluating a Java executable
 type JavaResult struct {
 	Path       string
-	Version    string
+	Properties *JavaProperties
+	Warnings   []string
 	StdErr     string
 	ReturnCode int
 	Error      error
@@ -84,7 +85,7 @@ func (f *JavaFinder) evaluateJava(javaPath string) JavaResult {
 		Path: javaPath,
 	}
 
-	cmd := exec.Command(javaPath, "-version")
+	cmd := exec.Command(javaPath, "-XshowSettings:properties", "--version")
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
@@ -99,11 +100,40 @@ func (f *JavaFinder) evaluateJava(javaPath string) JavaResult {
 		result.ReturnCode = 0
 	}
 
-	// Java typically outputs version info to stderr
-	result.Version = stdout.String()
+	// Java outputs properties and version info to stderr
 	result.StdErr = stderr.String()
+	result.Properties = ParseJavaProperties(stderr.String())
+
+	// Check for Oracle vendor
+	if result.Properties != nil && strings.Contains(result.Properties.Vendor, "Oracle") {
+		result.Warnings = append(result.Warnings, "Warning: Oracle vendor detected")
+	}
 
 	return result
+}
+
+// printResult prints the results of evaluating a Java executable
+func printResult(result *JavaResult) {
+	if result.Error != nil {
+		printf("Failed to execute: %v\n", result.Error)
+		return
+	}
+
+	if result.ReturnCode != 0 {
+		printf("Command failed with return code: %d\n", result.ReturnCode)
+		return
+	}
+
+	if result.Properties != nil {
+		printf("Java version: %s\n", result.Properties.Version)
+		printf("Java vendor: %s\n", result.Properties.Vendor)
+	}
+	
+	if len(result.Warnings) > 0 {
+		for _, warning := range result.Warnings {
+			printf("%s\n", warning)
+		}
+	}
 }
 
 // Find searches for java executables starting from the specified path
@@ -143,19 +173,7 @@ func (f *JavaFinder) Find() error {
 					printf("\nJava executable: %s\n", path)
 					result := f.evaluateJava(path)
 
-					if result.Error != nil {
-						printf("Failed to execute: %v\n", result.Error)
-					}
-
-					printf("Return code: %d\n", result.ReturnCode)
-
-					if result.Version != "" {
-						printf("stdout:\n%s", result.Version)
-					}
-					if result.StdErr != "" {
-						printf("stderr:\n%s", result.StdErr)
-					}
-					printf("---\n")
+					printResult(&result)
 				} else {
 					// If not evaluating, just print the path
 					fmt.Println(path)
