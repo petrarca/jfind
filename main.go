@@ -49,6 +49,7 @@ type JavaRuntimeJSON struct {
 	IsOracle       bool   `json:"is_oracle,omitempty"`
 	VersionMajor   int    `json:"java_version_major,omitempty"`
 	VersionUpdate  int    `json:"java_version_update,omitempty"`
+	ExecFailed     bool   `json:"exec_failed,omitempty"`
 }
 
 // MetaInfo represents metadata about the scan
@@ -392,6 +393,8 @@ func main() {
 				if runtime.IsOracle {
 					hasOracle = true
 				}
+			} else if evaluate && (result.Error != nil || result.ReturnCode != 0) {
+				runtime.ExecFailed = true
 			}
 
 			output.Runtimes = append(output.Runtimes, runtime)

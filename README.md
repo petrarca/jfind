@@ -104,7 +104,8 @@ The JSON output includes metadata about the scan and the results:
       "java_runtime": "Java(TM) SE Runtime", // Runtime name (if -eval used)
       "is_oracle": true,                     // Whether it's Oracle Java
       "java_version_major": 11,              // Major version number (8 for 1.8.0, 11 for 11.0.20)
-      "java_version_update": 20              // Update version number (202 for 1.8.0_202, 20 for 11.0.20)
+      "java_version_update": 20,             // Update version number (202 for 1.8.0_202, 20 for 11.0.20)
+      "exec_failed": true                    // Present and true if java -version execution failed
     }
   ]
 }
