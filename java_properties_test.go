@@ -23,30 +23,72 @@ func TestParseJavaProperties(t *testing.T) {
 	}
 }
 
+func TestParseJavaPropertiesWithOracleAndOpenJDK(t *testing.T) {
+	// Test with Oracle JDK
+	oracleOutput := `java.runtime.name = Java(TM) SE Runtime Environment
+java.vendor = Oracle Corporation
+java.version = 1.8.0_202
+`
+	result := JavaResult{
+		Path:      "/path/to/java",
+		StdErr:    oracleOutput,
+		Properties: ParseJavaProperties(oracleOutput),
+	}
+
+	if result.Properties == nil {
+		t.Fatal("Expected properties to be parsed")
+	}
+
+	if !strings.Contains(result.Properties.Vendor, "Oracle") {
+		t.Error("Expected Oracle vendor")
+	}
+
+	// Test with OpenJDK
+	openJDKOutput := `java.runtime.name = OpenJDK Runtime Environment
+java.vendor = Eclipse Adoptium
+java.version = 11.0.20
+`
+	result = JavaResult{
+		Path:      "/path/to/java",
+		StdErr:    openJDKOutput,
+		Properties: ParseJavaProperties(openJDKOutput),
+	}
+
+	if result.Properties == nil {
+		t.Fatal("Expected properties to be parsed")
+	}
+
+	if strings.Contains(result.Properties.Vendor, "Oracle") {
+		t.Error("Expected non-Oracle vendor")
+	}
+}
+
 func TestEvaluateJava(t *testing.T) {
 	// Test non-Oracle vendor
 	result := JavaResult{
+		Path: "/path/to/java",
 		Properties: &JavaProperties{
-			Version: "21.0.5",
-			Vendor:  "Eclipse Adoptium",
+			Version:     "11.0.20",
+			Vendor:      "Eclipse Adoptium",
+			RuntimeName: "OpenJDK Runtime Environment",
 		},
 	}
-	if len(result.Warnings) != 0 {
-		t.Errorf("Expected no warnings for non-Oracle vendor, got %v", result.Warnings)
+
+	if strings.Contains(result.Properties.Vendor, "Oracle") {
+		t.Error("Expected non-Oracle vendor")
 	}
 
 	// Test Oracle vendor
 	result = JavaResult{
+		Path: "/path/to/java",
 		Properties: &JavaProperties{
-			Version: "21.0.5",
-			Vendor:  "Oracle Corporation",
+			Version:     "1.8.0_202",
+			Vendor:      "Oracle Corporation",
+			RuntimeName: "Java(TM) SE Runtime Environment",
 		},
 	}
-	// Manually trigger Oracle check
-	if result.Properties != nil && strings.Contains(result.Properties.Vendor, "Oracle") {
-		result.Warnings = append(result.Warnings, "Warning: Oracle vendor detected")
-	}
-	if len(result.Warnings) == 0 {
-		t.Errorf("Expected warning for Oracle vendor")
+
+	if !strings.Contains(result.Properties.Vendor, "Oracle") {
+		t.Error("Expected Oracle vendor")
 	}
 }

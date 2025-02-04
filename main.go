@@ -34,7 +34,6 @@ type JavaFinder struct {
 type JavaResult struct {
 	Path       string
 	Properties *JavaProperties
-	Warnings   []string
 	StdErr     string
 	ReturnCode int
 	Error      error
@@ -43,11 +42,13 @@ type JavaResult struct {
 
 // JavaRuntimeJSON represents a single Java runtime for JSON output
 type JavaRuntimeJSON struct {
-	JavaExecutable string `json:"java.executable"`
-	JavaVersion    string `json:"java.version,omitempty"`
-	JavaVendor     string `json:"java.vendor,omitempty"`
-	JavaRuntime    string `json:"java.runtime.name,omitempty"`
+	JavaExecutable string `json:"java_executable"`
+	JavaVersion    string `json:"java_version,omitempty"`
+	JavaVendor     string `json:"java_vendor,omitempty"`
+	JavaRuntime    string `json:"java_runtime,omitempty"`
 	IsOracle       bool   `json:"is_oracle,omitempty"`
+	VersionMajor   int    `json:"java_version_major,omitempty"`
+	VersionUpdate  int    `json:"java_version_update,omitempty"`
 }
 
 // MetaInfo represents metadata about the scan
@@ -125,27 +126,17 @@ func (f *JavaFinder) evaluateJava(javaPath string) JavaResult {
 	}
 
 	cmd := exec.Command(javaPath, "-XshowSettings:properties", "-version")
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
+	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
-
-	err := cmd.Run()
-	if err != nil {
-		if exitError, ok := err.(*exec.ExitError); ok {
-			result.ReturnCode = exitError.ExitCode()
-		}
-		result.Error = err
-	} else {
-		result.ReturnCode = 0
+	result.Error = cmd.Run()
+	result.ReturnCode = 0
+	if exitError, ok := result.Error.(*exec.ExitError); ok {
+		result.ReturnCode = exitError.ExitCode()
 	}
 
-	// Java outputs properties and version info to stderr
 	result.StdErr = stderr.String()
-	result.Properties = ParseJavaProperties(stderr.String())
-
-	// Check for Oracle vendor
-	if result.Properties != nil && strings.Contains(result.Properties.Vendor, "Oracle") {
-		result.Warnings = append(result.Warnings, "Warning: Oracle vendor detected")
+	if result.Error == nil && result.ReturnCode == 0 {
+		result.Properties = ParseJavaProperties(result.StdErr)
 	}
 
 	return result
@@ -171,6 +162,8 @@ func printResult(result *JavaResult) {
 		printf("Java version: %s\n", result.Properties.Version)
 		printf("Java vendor: %s\n", result.Properties.Vendor)
 		printf("Java runtime name: %s\n", result.Properties.RuntimeName)
+		printf("Java major version: %d\n", result.Properties.Major)
+		printf("Java update version: %d\n", result.Properties.Update)
 
 		if strings.Contains(result.Properties.Vendor, "Oracle") {
 			printf("Warning: Oracle JDK detected\n")
@@ -394,6 +387,8 @@ func main() {
 				runtime.JavaVendor = result.Properties.Vendor
 				runtime.JavaRuntime = result.Properties.RuntimeName
 				runtime.IsOracle = strings.Contains(result.Properties.Vendor, "Oracle")
+				runtime.VersionMajor = result.Properties.Major
+				runtime.VersionUpdate = result.Properties.Update
 				if runtime.IsOracle {
 					hasOracle = true
 				}
