@@ -2,13 +2,16 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
 	"os/exec"
+	"os/user"
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 )
 
 // JavaFinder represents a finder for Java executables
@@ -27,6 +30,28 @@ type JavaResult struct {
 	StdErr     string
 	ReturnCode int
 	Error      error
+}
+
+// JavaRuntimeJSON represents a single Java runtime for JSON output
+type JavaRuntimeJSON struct {
+	JavaExecutable string `json:"java.executable"`
+	JavaVersion    string `json:"java.version,omitempty"`
+	JavaVendor     string `json:"java.vendor,omitempty"`
+	JavaRuntime    string `json:"java.runtime.name,omitempty"`
+	IsOracle       bool   `json:"is_oracle,omitempty"`
+}
+
+// MetaInfo represents metadata about the scan
+type MetaInfo struct {
+	ScanTimestamp string `json:"scan_ts"`
+	MachineName   string `json:"machine_name"`
+	UserName      string `json:"user_name"`
+}
+
+// JSONOutput represents the root JSON output structure
+type JSONOutput struct {
+	Meta     MetaInfo          `json:"meta"`
+	Runtimes []JavaRuntimeJSON `json:"result"`
 }
 
 // NewJavaFinder creates a new JavaFinder instance
@@ -124,6 +149,8 @@ func printResult(result *JavaResult) {
 		return
 	}
 
+	printf("Java executable: %s\n", result.Path)
+
 	if result.Properties != nil {
 		printf("Java version: %s\n", result.Properties.Version)
 		printf("Java vendor: %s\n", result.Properties.Vendor)
@@ -131,7 +158,7 @@ func printResult(result *JavaResult) {
 			printf("Java runtime name: %s\n", result.Properties.RuntimeName)
 		}
 	}
-	
+
 	if len(result.Warnings) > 0 {
 		for _, warning := range result.Warnings {
 			printf("%s\n", warning)
@@ -139,87 +166,172 @@ func printResult(result *JavaResult) {
 	}
 }
 
-// Find searches for java executables starting from the specified path
-func (f *JavaFinder) Find() error {
-	logf("Start looking for java in %s (scanning subdirectories)\n", f.startPath)
+// printJSONResult prints the results in JSON format
+func printJSONResult(results []*JavaResult) {
+	output := JSONOutput{
+		Runtimes: make([]JavaRuntimeJSON, 0),
+	}
 
-	return filepath.Walk(f.startPath, func(path string, info os.FileInfo, err error) error {
+	for _, result := range results {
+		runtime := JavaRuntimeJSON{
+			JavaExecutable: result.Path,
+		}
+
+		if result.Properties != nil && result.Error == nil && result.ReturnCode == 0 {
+			runtime.JavaVersion = result.Properties.Version
+			runtime.JavaVendor = result.Properties.Vendor
+			runtime.JavaRuntime = result.Properties.RuntimeName
+			runtime.IsOracle = strings.Contains(result.Properties.Vendor, "Oracle")
+		}
+
+		output.Runtimes = append(output.Runtimes, runtime)
+	}
+
+	jsonData, err := json.MarshalIndent(output, "", "  ")
+	if err != nil {
+		logf("Error generating JSON output: %v\n", err)
+		return
+	}
+	printf("%s\n", jsonData)
+}
+
+// Find searches for java executables starting from the specified path
+func (f *JavaFinder) Find() ([]*JavaResult, error) {
+	if f.verbose {
+		logf("Start looking for java in %s (scanning subdirectories)\n", f.startPath)
+	}
+
+	var results []*JavaResult
+
+	err := filepath.Walk(f.startPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return nil // skip errors, continue walking
 		}
 
 		// Print directory being scanned in verbose mode
 		if f.verbose && info.IsDir() {
-			logf("Scanning directory: %s\n", path)
+			logf("Scanning: %s\n", path)
 		}
 
-		// Check depth limit if set
-		if f.maxDepth >= 0 {
-			depth := f.getPathDepth(path)
-			if depth > f.maxDepth {
-				if info.IsDir() {
-					if f.verbose {
-						logf("Skipping directory (max depth reached): %s\n", path)
-					}
-					return filepath.SkipDir // skip this directory and its children
-				}
-				return nil
+		// Check depth
+		if f.maxDepth >= 0 && f.getPathDepth(path) > f.maxDepth {
+			if info.IsDir() {
+				return filepath.SkipDir
 			}
+			return nil
 		}
 
-		// Check if it's a file and has the name we're looking for
-		if !info.IsDir() && isJavaExecutable(info.Name()) {
-			// Check if the file is executable based on the OS
-			if isExecutable(info) {
-				if f.evaluate {
-					// If evaluating, print path as part of evaluation result
-					printf("\nJava executable: %s\n", path)
-					result := f.evaluateJava(path)
+		// Check if file is executable and matches java pattern
+		if !info.IsDir() && isExecutable(info) && isJavaExecutable(filepath.Base(path)) {
+			// Always log the executable path to stderr when found
+			logf("%s\n", path)
 
-					printResult(&result)
-				} else {
-					// If not evaluating, just print the path
-					fmt.Println(path)
+			if f.evaluate {
+				result := f.evaluateJava(path)
+				results = append(results, &result)
+			} else {
+				// For non-evaluated executables, create a basic result
+				result := JavaResult{
+					Path: path,
 				}
-			} else if f.verbose {
-				logf("Found non-executable java file: %s\n", path)
+				results = append(results, &result)
 			}
 		}
 		return nil
 	})
+
+	return results, err
+}
+
+func getMachineInfo() (MetaInfo, error) {
+	info := MetaInfo{}
+
+	// Get hostname (works on all platforms)
+	hostname, err := os.Hostname()
+	if err != nil {
+		hostname = "unknown"
+	}
+	info.MachineName = hostname
+
+	// Get username (works on all platforms)
+	currentUser, err := user.Current()
+	if err != nil {
+		info.UserName = "unknown"
+	} else {
+		info.UserName = currentUser.Username
+	}
+
+	// Get current timestamp in ISO 8601 format
+	info.ScanTimestamp = time.Now().UTC().Format(time.RFC3339)
+
+	return info, nil
 }
 
 func main() {
-	// Parse command line arguments
-	startPath := flag.String("path", ".", "Starting path for the search (--path /some/path)")
-	maxDepth := flag.Int("depth", -1, "Maximum directory depth to search, -1 for unlimited (--depth 2)")
-	verbose := flag.Bool("v", false, "Verbose mode - print directories being scanned (--v)")
-	evaluate := flag.Bool("eval", false, "Evaluate found Java executables by running java -version (--eval)")
+	var startPath string
+	var maxDepth int
+	var verbose bool
+	var evaluate bool
+	var jsonOutput bool
 
-	// Add custom usage message
-	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr, "Usage of %s:\n", os.Args[0])
-		fmt.Fprintf(os.Stderr, "Find Java executables and optionally evaluate their version.\n\n")
-		fmt.Fprintf(os.Stderr, "Options:\n")
-		flag.PrintDefaults()
-		fmt.Fprintf(os.Stderr, "\nExample usage:\n")
-		fmt.Fprintf(os.Stderr, "  %s --path /usr/local --depth 2 --eval\n", os.Args[0])
-		fmt.Fprintf(os.Stderr, "  %s --v --eval\n", os.Args[0])
-	}
-
+	flag.StringVar(&startPath, "path", ".", "Start path for searching")
+	flag.IntVar(&maxDepth, "depth", -1, "Maximum depth to search (-1 for unlimited)")
+	flag.BoolVar(&verbose, "verbose", false, "Enable verbose output")
+	flag.BoolVar(&evaluate, "eval", false, "Evaluate found java executables")
+	flag.BoolVar(&jsonOutput, "json", false, "Output results in JSON format")
 	flag.Parse()
 
-	// Get absolute path
-	absPath, err := filepath.Abs(*startPath)
+	// Convert relative path to absolute
+	absPath, err := filepath.Abs(startPath)
 	if err != nil {
 		logf("Error resolving path: %v\n", err)
 		os.Exit(1)
 	}
 
-	// Create and run finder
-	finder := NewJavaFinder(absPath, *maxDepth, *verbose, *evaluate)
-	if err := finder.Find(); err != nil {
+	finder := NewJavaFinder(absPath, maxDepth, verbose, evaluate)
+	results, err := finder.Find()
+	if err != nil {
 		logf("Error during search: %v\n", err)
 		os.Exit(1)
+	}
+
+	if jsonOutput {
+		// Get meta information
+		meta, err := getMachineInfo()
+		if err != nil {
+			logf("Warning: Could not get complete machine info: %v\n", err)
+		}
+
+		output := JSONOutput{
+			Meta:     meta,
+			Runtimes: make([]JavaRuntimeJSON, 0),
+		}
+
+		for _, result := range results {
+			runtime := JavaRuntimeJSON{
+				JavaExecutable: result.Path,
+			}
+
+			if evaluate && result.Properties != nil && result.Error == nil && result.ReturnCode == 0 {
+				runtime.JavaVersion = result.Properties.Version
+				runtime.JavaVendor = result.Properties.Vendor
+				runtime.JavaRuntime = result.Properties.RuntimeName
+				runtime.IsOracle = strings.Contains(result.Properties.Vendor, "Oracle")
+			}
+
+			output.Runtimes = append(output.Runtimes, runtime)
+		}
+
+		jsonData, err := json.MarshalIndent(output, "", "  ")
+		if err != nil {
+			logf("Error generating JSON output: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Println(string(jsonData))
+	} else {
+		for _, result := range results {
+			printResult(result)
+			printf("\n")
+		}
 	}
 }
