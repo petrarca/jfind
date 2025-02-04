@@ -44,7 +44,7 @@ type JavaRuntimeJSON struct {
 // MetaInfo represents metadata about the scan
 type MetaInfo struct {
 	ScanTimestamp string `json:"scan_ts"`
-	MachineName   string `json:"machine_name"`
+	ComputerName  string `json:"computer_name"`
 	UserName      string `json:"user_name"`
 }
 
@@ -243,15 +243,41 @@ func (f *JavaFinder) Find() ([]*JavaResult, error) {
 	return results, err
 }
 
+// getComputerName returns the computer name based on the operating system
+func getComputerName() string {
+	switch runtime.GOOS {
+	case "darwin":
+		cmd := exec.Command("scutil", "--get", "ComputerName")
+		output, err := cmd.Output()
+		if err == nil {
+			return strings.TrimSpace(string(output))
+		}
+	case "windows":
+		cmd := exec.Command("cmd", "/c", "hostname")
+		output, err := cmd.Output()
+		if err == nil {
+			return strings.TrimSpace(string(output))
+		}
+	case "linux":
+		// Try to read from /etc/hostname first
+		if data, err := os.ReadFile("/etc/hostname"); err == nil {
+			return strings.TrimSpace(string(data))
+		}
+		// Fallback to hostname command
+		cmd := exec.Command("hostname")
+		output, err := cmd.Output()
+		if err == nil {
+			return strings.TrimSpace(string(output))
+		}
+	}
+	return "unknown"
+}
+
 func getMachineInfo() (MetaInfo, error) {
 	info := MetaInfo{}
 
-	// Get hostname (works on all platforms)
-	hostname, err := os.Hostname()
-	if err != nil {
-		hostname = "unknown"
-	}
-	info.MachineName = hostname
+	// Get computer name using OS-specific method
+	info.ComputerName = getComputerName()
 
 	// Get username (works on all platforms)
 	currentUser, err := user.Current()

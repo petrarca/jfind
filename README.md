@@ -75,7 +75,7 @@ When an Oracle JDK is detected, a warning message is printed to alert the user.
 {
   "meta": {
     "scan_ts": "2025-02-04T13:27:25Z",
-    "machine_name": "hostname",
+    "computer_name": "Stanford",
     "user_name": "username"
   },
   "result": [
