@@ -213,8 +213,8 @@ func (f *JavaFinder) Find() ([]*JavaResult, error) {
 			return nil
 		}
 
-		// Check if file is executable and named 'java'
-		if !info.IsDir() && info.Name() == "java" && isExecutable(info) {
+		// Check if file is executable and named 'java' or 'java.exe' depending on OS
+		if !info.IsDir() && isJavaExecutable(info.Name()) && isExecutable(info) {
 			if f.evaluate {
 				result := f.evaluateJava(path)
 				results = append(results, &result)
@@ -347,6 +347,7 @@ func main() {
 		os.Exit(1)
 	}
 
+	logf("Start scanning (platform '%s') from path '%s'\n", runtime.GOOS, absPath)
 	finder := NewJavaFinder(absPath, maxDepth, verbose, evaluate)
 	startTime := time.Now()
 	results, err := finder.Find()
