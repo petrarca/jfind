@@ -1,8 +1,9 @@
 """JFind Service main module."""
 
 import argparse
+import os
 from contextlib import asynccontextmanager
-from typing import NamedTuple
+from typing import NamedTuple, Optional
 
 import uvicorn
 from fastapi import FastAPI
@@ -56,6 +57,7 @@ class ServerConfig(NamedTuple):
 
     host: str = "0.0.0.0"
     port: int = 8000
+    database_url: Optional[str] = None
 
 
 def parse_args() -> ServerConfig:
@@ -63,15 +65,18 @@ def parse_args() -> ServerConfig:
     parser = argparse.ArgumentParser(description="JFind Service")
     parser.add_argument("--port", type=int, default=8000, help="Port to run the server on (default: 8000)")
     parser.add_argument("--host", type=str, default="0.0.0.0", help="Host to run the server on (default: 0.0.0.0)")
+    parser.add_argument("--database-url", type=str, help="Database URL (overrides environment variable)")
 
     # Don't exit on error, just use defaults
     args, _ = parser.parse_known_args()
-    return ServerConfig(host=args.host, port=args.port)
+    return ServerConfig(host=args.host, port=args.port, database_url=args.database_url)
 
 
 def run():
     """Entry point for the application."""
     config = parse_args()
+    if config.database_url:
+        os.environ["DATABASE_URL"] = config.database_url
     uvicorn.run(app, host=config.host, port=config.port)
 
 

@@ -69,6 +69,47 @@ python -m src.jfind_svc.main [--host HOST] [--port PORT]
 Parameters:
 - `--host`: Host address to bind to (default: "0.0.0.0")
 - `--port`: Port number to listen on (default: 8000)
+- `--database-url`: Database URL to connect to (overrides environment variable)
+
+### Database Configuration
+
+The service supports both SQLite and PostgreSQL databases. The database connection can be configured in several ways, listed in order of priority:
+
+1. Command line argument:
+   ```bash
+   jfind-svc --database-url "postgresql+asyncpg://user:pass@localhost:5432/jfind"
+   ```
+
+2. Environment variable (from shell or .env files):
+   ```bash
+   # Option 1: Set in shell
+   export DATABASE_URL="postgresql+asyncpg://user:pass@localhost:5432/jfind"
+   jfind-svc
+
+   # Option 2: Set in .env file (in project directory)
+   echo "DATABASE_URL=postgresql+asyncpg://user:pass@localhost:5432/jfind" > .env
+
+   # Option 3: Set in ~/.env (user's home directory)
+   echo "DATABASE_URL=postgresql+asyncpg://user:pass@localhost:5432/jfind" > ~/.env
+   ```
+
+3. Default configuration:
+   - Development: SQLite (`sqlite+aiosqlite:///./jfind.db`)
+   - Production: PostgreSQL (`postgresql+asyncpg://postgres:postgres@localhost:5432/jfind`)
+   
+   The environment is determined by the `ENV` environment variable (default: "development")
+
+### Environment Files
+
+The service supports loading environment variables from two locations:
+1. `.env` in the project directory
+2. `.env` in the user's home directory (`~/.env`)
+
+These files can contain any environment variables used by the service, such as:
+```env
+DATABASE_URL=postgresql+asyncpg://user:pass@localhost:5432/jfind
+ENV=production
+```
 
 ## API Endpoints
 
