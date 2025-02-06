@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	defaultPostURL = "http://localhost:8080/jfind"
+	defaultPostURL = "http://localhost:8000/api/jfind"
 )
 
 // JavaFinder represents a finder for Java executables
@@ -299,7 +299,7 @@ func sendJSON(jsonData []byte, url string) error {
 	}
 	defer resp.Body.Close()
 
-	// Read response body for error details
+	// Read response body
 	body, _ := io.ReadAll(resp.Body)
 
 	if resp.StatusCode != http.StatusOK {
@@ -307,6 +307,11 @@ func sendJSON(jsonData []byte, url string) error {
 			return fmt.Errorf("server returned %s: %s", resp.Status, string(body))
 		}
 		return fmt.Errorf("server returned %s", resp.Status)
+	}
+
+	// Print response JSON when status is 200
+	if len(body) > 0 {
+		logf("Server response: %s\n", string(body))
 	}
 
 	return nil

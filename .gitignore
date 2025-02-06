@@ -1,2 +1,25 @@
-# env file
+.idea/
+.vscode/
+*.py[cod]
+*.so
+*.egg/
+*.egg-info/
+.DS_Store
+dist/
+build/
+site/
+.venv/
+__pycache__/
+.tox/
+.mypy_cache/
+.pytest_cache/
+.coverage
+.ruff_cache
+htmlcov/
+docs/coverage/
+tests/coverage.xml
+.cgdb_history
 .env
+.scannerwork
+*.db
+~*.*
