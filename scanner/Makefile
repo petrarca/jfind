@@ -1,4 +1,5 @@
-BINARY_NAME=jfind
+BINARY_TARGET=./bin
+BINARY_NAME=$(BINARY_TARGET)/jfind
 
 .PHONY: build
 build:
