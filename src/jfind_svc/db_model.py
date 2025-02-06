@@ -48,6 +48,7 @@ class JavaInfo(Base):
     java_version: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     java_version_major: Mapped[Optional[int]] = mapped_column(nullable=True)
     java_version_update: Mapped[Optional[int]] = mapped_column(nullable=True)
+    require_license: Mapped[Optional[bool]] = mapped_column(nullable=True)
     created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
 
     # Relationship to ScanInfo

@@ -13,6 +13,7 @@ class JavaRuntime(BaseModel):
     java_version: str | None = None
     java_version_major: int | None = None
     java_version_update: int | None = None
+    require_license: bool | None = None
 
 
 class MetaInfo(BaseModel):

@@ -50,6 +50,12 @@ type JavaRuntimeJSON struct {
 	VersionMajor   int    `json:"java_version_major,omitempty"`
 	VersionUpdate  int    `json:"java_version_update,omitempty"`
 	ExecFailed     bool   `json:"exec_failed,omitempty"`
+	RequireLicense *bool  `json:"require_license"`
+}
+
+func (j *JavaRuntimeJSON) checkLicenseRequirement() {
+	j.RequireLicense = new(bool)
+	*j.RequireLicense = j.IsOracle
 }
 
 // MetaInfo represents metadata about the scan
@@ -324,6 +330,7 @@ func main() {
 	var evaluate bool
 	var jsonOutput bool
 	var doPost bool
+	var postURL string
 
 	flag.StringVar(&startPath, "path", ".", "Start path for searching")
 	flag.IntVar(&maxDepth, "depth", -1, "Maximum depth to search (-1 for unlimited)")
@@ -331,18 +338,11 @@ func main() {
 	flag.BoolVar(&evaluate, "eval", false, "Evaluate found java executables")
 	flag.BoolVar(&jsonOutput, "json", false, "Output results in JSON format")
 	flag.BoolVar(&doPost, "post", false, "Post JSON output to server (implies --json)")
+	flag.StringVar(&postURL, "url", defaultPostURL, "URL to post JSON output to (only used with --post)")
 	flag.Parse()
 
-	// Get optional URL from remaining args or use default
-	var postURL string
-	args := flag.Args()
 	if doPost {
 		jsonOutput = true
-		if len(args) > 0 {
-			postURL = args[0]
-		} else {
-			postURL = defaultPostURL
-		}
 	}
 
 	// Convert relative path to absolute
@@ -402,6 +402,8 @@ func main() {
 			} else if evaluate && (result.Error != nil || result.ReturnCode != 0) {
 				runtime.ExecFailed = true
 			}
+
+			runtime.checkLicenseRequirement()
 
 			output.Runtimes = append(output.Runtimes, runtime)
 		}

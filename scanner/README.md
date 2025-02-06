@@ -39,7 +39,8 @@ jfind [options] [-post[=URL]]
 - `-verbose`: Enable verbose output
 - `-eval`: Evaluate found java executables
 - `-json`: Output results in JSON format
-- `-post`: Post JSON output to server (implies --json). With optional URL parameter (default http://localhost:8000/jfind)
+- `-post`: Post JSON output to server (implies --json)
+- `-url string`: URL to post JSON output to (only used with --post, default http://localhost:8000/api/jfind)
 
 ### Examples
 
@@ -50,22 +51,17 @@ jfind
 
 Find and evaluate Java installations with JSON output:
 ```bash
-jfind -eval -json
+jfind -path /usr/lib/jvm -eval -json
 ```
 
-Search in specific directory with depth limit:
+Find Java installations in /opt and post results to default server:
 ```bash
-jfind -path /usr/local -depth 2
+jfind -path /opt -eval -post
 ```
 
-Find Java installations and post results to default server:
+Find Java installations and post to custom server:
 ```bash
-jfind -eval -post
-```
-
-Find Java installations and post results to custom server:
-```bash
-jfind -eval -post=http://myserver.com:8080/java
+jfind -path /usr/local -eval -post -url http://myserver:8000/api/jfind
 ```
 
 ### Output Formats

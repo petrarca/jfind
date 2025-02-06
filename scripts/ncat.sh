@@ -1,5 +1,5 @@
 #!/bin/sh
-PORT=${1:-8080}
+PORT=${1:-8000}
 if ! [ -x "$(command -v nc)" ]; then
 	echo "netcat is missing. Please install it" >&2
 	exit 1
