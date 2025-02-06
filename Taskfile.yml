@@ -1,63 +1,29 @@
-version: '3'
+version: "3"
 
-dotenv: ['.env', '{{.HOME}}/.env']
+dotenv: [".env", "{{.HOME}}/.env"]
+
+includes:
+  scanner:
+    taskfile: ./scanner/Taskfile.yml
+    dir: ./scanner
 
 tasks:
-  install:
-    desc: "Install the package in editable mode"
-    cmds:
-      - .venv/bin/python -m pip install --trusted-host pypi.org --trusted-host pypi.python.org -U pip setuptools wheel
-      - .venv/bin/python -m pip install --trusted-host pypi.org --trusted-host pypi.python.org -e .[dev,build,examples]
-  install:venv:
-    desc: "Install venv"
-    cmds:
-      - python3 -m venv .venv
-  install:all:
-    desc: Install all packages in editable mode, including creating venv"
-    cmds:
-      - task: install:venv
-      - task: install
-
-  clean:
-    desc: "Clean the build files"
-    cmds:
-      - rm -rf build/ dist/ src/*.egg-info/ .mypy_cache/ .pytest_cache/ .coverage .scannerwork
-      - rm -rf docs/coverage/ tests/coverage.xml
-  clean:venv:
-    desc: "Clean .venv"
-    cmds:
-      - rm -rf .venv
-  clean:caches:
-    desc: "Clean caches"
-    cmds:
-      - ruff clean
-      - find . -type d -name "__pycache__" -exec rm -r {} +
-  clean:all:
-    desc: "Clean all"
-    cmds:
-      - task: clean
-      - task: clean:caches 
-      - task: clean:venv
-
-  build:all:
-    desc: "Build all artifacts"
-    cmds:
-      - task: build
   build:
     desc: "Build the package"
     cmds:
       - python -m build
 
-  run:svc:
-    desc: "Run the JFind service"
+  build:all:
+    desc: "Build all artifacts"
     cmds:
-      - python -m src.jfind_svc.main
+      - task: build
+      - task: scanner:build
+      - task: scanner:build:all
 
-  format:
-    desc: "Format the code using ruff"
+  build:scanner:
+    desc: "Build the scanner"
     cmds:
-      - ruff format
-      - ruff check --select I --fix .
+      - task: scanner:build
 
   check:
     desc: "Check code by linting"
@@ -69,21 +35,35 @@ tasks:
     cmds:
       - ruff check --fix
 
-  test:
-    desc: "Run the tests using pytest"
+  clean:
+    desc: "Clean the build files"
     cmds:
-      - pytest
-  test:cov:
-    desc: "Run the tests using pytest with coverage"
-    cmds:
-      - pytest --cov src --cov-report html:docs/coverage --cov-report xml:tests/coverage.xml -x
+      - rm -rf build/ dist/ src/*.egg-info/ .mypy_cache/ .pytest_cache/ .coverage .scannerwork
+      - rm -rf docs/coverage/ tests/coverage.xml
 
-  pre-commit:
-    desc: "Run before commit"
+  clean:all:
+    desc: "Clean all"
     cmds:
-      - task: format
-      - task: check
-      - task: test
+      - task: clean
+      - task: clean:caches
+      - task: scanner:clean
+
+  clean:caches:
+    desc: "Clean caches"
+    cmds:
+      - cmd: .venv/bin/ruff clean
+        ignore_error: true
+      - find . -type d -name "__pycache__" -exec rm -r {} +
+
+  clean:scanner:
+    desc: "Clean scanner build artifacts"
+    cmds:
+      - task: scanner:clean
+
+  clean:venv:
+    desc: "Clean .venv"
+    cmds:
+      - rm -rf .venv
 
   ci:
     desc: "Run the CI pipeline"
@@ -92,3 +72,52 @@ tasks:
       - task: test
     deps:
       - install:all
+
+  default:
+    desc: "List available tasks"
+    cmds:
+      - task --list --sort alphanumeric
+
+  format:
+    desc: "Format the code using ruff"
+    cmds:
+      - ruff format
+      - ruff check --select I --fix .
+
+  install:
+    desc: "Install the package in editable mode"
+    cmds:
+      - .venv/bin/python -m pip install --trusted-host pypi.org --trusted-host pypi.python.org -U pip setuptools wheel
+      - .venv/bin/python -m pip install --trusted-host pypi.org --trusted-host pypi.python.org -e .[dev,build,examples]
+
+  install:all:
+    desc: Install all packages in editable mode, including creating venv"
+    cmds:
+      - task: install:venv
+      - task: install
+
+  install:venv:
+    desc: "Install venv"
+    cmds:
+      - python3 -m venv .venv
+
+  pre-commit:
+    desc: "Run before commit"
+    cmds:
+      - task: format
+      - task: check
+      - task: test
+
+  run:svc:
+    desc: "Run the JFind service"
+    cmds:
+      - python -m src.jfind_svc.main
+
+  test:
+    desc: "Run the tests using pytest"
+    cmds:
+      - pytest
+  test:cov:
+    desc: "Run the tests using pytest with coverage"
+    cmds:
+      - pytest --cov src --cov-report html:docs/coverage --cov-report xml:tests/coverage.xml -x

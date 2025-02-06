@@ -18,11 +18,11 @@ A cross-platform command-line tool to find and evaluate Java installations on yo
 
 1. Ensure you have Go installed on your system
 2. Clone the repository
-3. Build using make:
+3. Build using task:
 
 ```bash
-make build        # Build for current platform
-make build-all    # Build for all supported platforms
+task build        # Build for current platform
+task build:all    # Build for all supported platforms
 ```
 
 ## Usage
@@ -123,9 +123,9 @@ The version fields follow Java's version scheme:
 
 ### Running Tests
 ```bash
-make test
+task test
 ```
 
 ### Cleaning Build Artifacts
 ```bash
-make clean
+task clean
