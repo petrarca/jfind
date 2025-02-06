@@ -13,6 +13,7 @@ from jfind_svc.jfind_db import (
     get_oracle_jdks,
     get_scan_by_id,
     get_scans_by_computer_name,
+    has_oracle_jdk,
     save_scanner_results,
 )
 from jfind_svc.model import ScannerResults
@@ -110,7 +111,7 @@ async def get_scans_by_computer(computer_name: str, limit: int = 10, session: As
     return JSONResponse(content=response, status_code=status.HTTP_200_OK)
 
 
-@router.get("/jfind/jdk/oracle", status_code=status.HTTP_200_OK)
+@router.get("/jfind/oracle", status_code=status.HTTP_200_OK)
 async def get_oracle_java_runtimes(limit: int = 10, session: AsyncSession = db_session) -> JSONResponse:
     """Get all Oracle Java runtimes.
 
@@ -137,6 +138,41 @@ async def get_oracle_java_runtimes(limit: int = 10, session: AsyncSession = db_s
         for java in java_infos
     ]
     return JSONResponse(content=response, status_code=status.HTTP_200_OK)
+
+
+@router.get("/jfind/oracle/{computer_name}", status_code=status.HTTP_200_OK)
+async def check_oracle_jdk(computer_name: str, session: AsyncSession = db_session) -> JSONResponse:
+    """Check if a computer has Oracle JDK installed.
+
+    Args:
+        computer_name: Name of computer to check
+        session: Database session
+
+    Returns:
+        200 OK with {
+            "computer_name": str,
+            "has_oracle": "true"/"false"/"unknown"
+        }
+        - "true": Computer has Oracle JDK installed
+        - "false": Computer has Java records but no Oracle JDK
+        - "unknown": No records found for this computer
+    """
+    has_oracle = await has_oracle_jdk(session, computer_name)
+    
+    # Convert boolean/None to true/false/unknown
+    result = {
+        True: "true",
+        False: "false",
+        None: "unknown"
+    }[has_oracle]
+    
+    return JSONResponse(
+        content={
+            "computer_name": computer_name,
+            "has_oracle": result
+        },
+        status_code=status.HTTP_200_OK
+    )
 
 
 def _format_scan_response(scan: ScanInfo) -> dict:

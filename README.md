@@ -116,7 +116,18 @@ ENV=production
 - `POST /jfind`: Submit Java runtime scan results
 - `GET /jfind/scans`: Get latest scan results
 - `GET /jfind/computer/{computer_name}`: Get scan results for a specific computer
-- `GET /jfind/jdk/oracle`: Get all Oracle Java runtime information
+- `GET /jfind/oracle`: Get all Oracle Java runtime information
+- `GET /jfind/oracle/{computer_name}`: Check if a specific computer has Oracle JDK installed
+  - Response: 
+    ```json
+    {
+      "computer_name": "string",
+      "has_oracle": "true"|"false"|"unknown"
+    }
+    ```
+  - "true": Computer has Oracle JDK installed
+  - "false": Computer has Java records but no Oracle JDK
+  - "unknown": No records found for this computer
 - `GET /health`: Health check endpoint
 
 For detailed API documentation, visit `http://localhost:8000/docs` after starting the service.
