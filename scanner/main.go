@@ -309,9 +309,9 @@ func sendJSON(jsonData []byte, url string) error {
 		return fmt.Errorf("server returned %s", resp.Status)
 	}
 
-	// Print response JSON when status is 200
+	// Write response JSON directly to stdout
 	if len(body) > 0 {
-		logf("Server response: %s\n", string(body))
+		os.Stdout.Write(body)
 	}
 
 	return nil
@@ -421,9 +421,8 @@ func main() {
 				logf("Error: %v\n", err)
 				os.Exit(1)
 			}
-			logf("Successfully posted JSON to %s\n", postURL)
 		} else {
-			fmt.Println(string(jsonData))
+			os.Stdout.Write(jsonData)
 		}
 	} else {
 		for _, result := range results {

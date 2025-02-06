@@ -24,6 +24,11 @@ tasks:
       - go clean
       - rm -f {{.BINARY_NAME}}*
 
+  default:
+    desc: List available tasks
+    cmds:
+      - task --list --sort alphanumeric
+
   test:
     desc: Run tests
     cmds:
