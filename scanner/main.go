@@ -53,11 +53,6 @@ type JavaRuntimeJSON struct {
 	RequireLicense *bool  `json:"require_license"`
 }
 
-func (j *JavaRuntimeJSON) checkLicenseRequirement() {
-	j.RequireLicense = new(bool)
-	*j.RequireLicense = j.IsOracle
-}
-
 // MetaInfo represents metadata about the scan
 type MetaInfo struct {
 	ScanTimestamp string `json:"scan_ts"`
