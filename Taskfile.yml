@@ -88,7 +88,7 @@ tasks:
     desc: "Install the package in editable mode"
     cmds:
       - .venv/bin/python -m pip install --trusted-host pypi.org --trusted-host pypi.python.org -U pip setuptools wheel
-      - .venv/bin/python -m pip install --trusted-host pypi.org --trusted-host pypi.python.org -e .[dev,build,examples]
+      - .venv/bin/python -m pip install --trusted-host pypi.org --trusted-host pypi.python.org -e .[dev,build]
 
   install:all:
     desc: Install all packages in editable mode, including creating venv"
