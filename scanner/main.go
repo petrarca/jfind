@@ -50,7 +50,7 @@ type JavaRuntimeJSON struct {
 	VersionMajor   int    `json:"java_version_major,omitempty"`
 	VersionUpdate  int    `json:"java_version_update,omitempty"`
 	ExecFailed     bool   `json:"exec_failed,omitempty"`
-	RequireLicense *bool  `json:"require_license"`
+	RequireLicense *bool  `json:"require_license,omitempty"`
 }
 
 // MetaInfo represents metadata about the scan

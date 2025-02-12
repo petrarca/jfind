@@ -80,6 +80,20 @@ When an Oracle JDK is detected, a warning message is printed to alert the user.
 
 #### JSON Output (-json or -post)
 
+When using `-json`, the output is written to stdout in JSON format, making it easy to pipe the results to other JSON processing tools like `jq`. When using `-post`, the JSON is sent to the specified server instead.
+
+Examples of JSON processing:
+```bash
+# Find Oracle JDKs and extract their paths
+jfind -eval -json | jq -r '.result[] | select(.is_oracle==true) | .java_executable'
+
+# Count Java installations requiring license
+jfind -eval -json | jq '.result[] | select(.require_license==true) | length'
+
+# Get all Java major versions found
+jfind -eval -json | jq -r '.result[].java_version_major' | sort -u
+```
+
 The JSON output includes metadata about the scan and the results:
 
 ```json
@@ -103,7 +117,7 @@ The JSON output includes metadata about the scan and the results:
       "java_version_major": 11,              // Major version number (8 for 1.8.0, 11 for 11.0.20)
       "java_version_update": 20,             // Update version number (202 for 1.8.0_202, 20 for 11.0.20)
       "exec_failed": true,                   // Present and true if java -version execution failed
-      "require_license": true,               // Whether commercial license is required
+      "require_license": true                // Present if license requirement is determined (true/false)
     }
   ]
 }
