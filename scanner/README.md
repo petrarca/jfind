@@ -41,6 +41,7 @@ jfind [options] [-post[=URL]]
 - `-json`: Output results in JSON format
 - `-post`: Post JSON output to server (implies --json)
 - `-url string`: URL to post JSON output to (only used with --post, default http://localhost:8000/api/jfind)
+- `-require-license`: Filter only Java runtimes that require a commercial license (requires -eval)
 
 ### Examples
 
@@ -54,14 +55,14 @@ Find and evaluate Java installations with JSON output:
 jfind -path /usr/lib/jvm -eval -json
 ```
 
-Find Java installations in /opt and post results to default server:
+Find Java installations requiring commercial license:
 ```bash
-jfind -path /opt -eval -post
+jfind -path /opt -eval -require-license
 ```
 
-Find Java installations and post to custom server:
+Find Java installations requiring license and post to server:
 ```bash
-jfind -path /usr/local -eval -post -url http://myserver:8000/api/jfind
+jfind -path /usr/local -eval -require-license -post
 ```
 
 ### Output Formats
@@ -101,7 +102,8 @@ The JSON output includes metadata about the scan and the results:
       "is_oracle": true,                     // Whether it's Oracle Java
       "java_version_major": 11,              // Major version number (8 for 1.8.0, 11 for 11.0.20)
       "java_version_update": 20,             // Update version number (202 for 1.8.0_202, 20 for 11.0.20)
-      "exec_failed": true                    // Present and true if java -version execution failed
+      "exec_failed": true,                   // Present and true if java -version execution failed
+      "require_license": true,               // Whether commercial license is required
     }
   ]
 }

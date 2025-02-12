@@ -326,6 +326,7 @@ func main() {
 	var jsonOutput bool
 	var doPost bool
 	var postURL string
+	var requireLicense bool
 
 	flag.StringVar(&startPath, "path", ".", "Start path for searching")
 	flag.IntVar(&maxDepth, "depth", -1, "Maximum depth to search (-1 for unlimited)")
@@ -334,6 +335,7 @@ func main() {
 	flag.BoolVar(&jsonOutput, "json", false, "Output results in JSON format")
 	flag.BoolVar(&doPost, "post", false, "Post JSON output to server (implies --json)")
 	flag.StringVar(&postURL, "url", defaultPostURL, "URL to post JSON output to (only used with --post)")
+	flag.BoolVar(&requireLicense, "require-license", false, "Filter only Java runtimes that require a commercial license")
 	flag.Parse()
 
 	if doPost {
@@ -399,6 +401,11 @@ func main() {
 			}
 
 			runtime.checkLicenseRequirement()
+
+			// Skip if require-license is set and either the runtime doesn't require a license or the license requirement is unknown
+			if requireLicense && (runtime.RequireLicense == nil || !*runtime.RequireLicense) {
+				continue
+			}
 
 			output.Runtimes = append(output.Runtimes, runtime)
 		}
