@@ -105,6 +105,7 @@ The JSON output includes metadata about the scan and the results:
     "scan_duration": "PT2.345S",            // Duration in ISO8601 format
     "has_oracle_jdk": false,                // Whether Oracle JDK was found
     "count_result": 2,                      // Number of Java installations found
+    "count_require_license": 1,             // Number of Java installations requiring license
     "scanned_dirs": 56                      // Number of directories scanned
   },
   "result": [

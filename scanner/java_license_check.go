@@ -2,6 +2,15 @@ package main
 
 // checkLicenseRequirement determines if a commercial license is required for the Java runtime
 func (j *JavaRuntimeJSON) checkLicenseRequirement() {
+	// OpenJDK never requires a license
+	if j.JavaRuntime == "OpenJDK Runtime Environment" {
+		if j.RequireLicense == nil {
+			j.RequireLicense = new(bool)
+		}
+		*j.RequireLicense = false
+		return
+	}
+
 	// Only set RequireLicense for Oracle JDKs
 	if !j.IsOracle {
 		j.RequireLicense = nil

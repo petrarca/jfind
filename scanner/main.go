@@ -55,13 +55,14 @@ type JavaRuntimeJSON struct {
 
 // MetaInfo represents metadata about the scan
 type MetaInfo struct {
-	ScanTimestamp string `json:"scan_ts"`
-	ComputerName  string `json:"computer_name"`
-	UserName      string `json:"user_name"`
-	ScanDuration  string `json:"scan_duration"`
-	HasOracleJDK  bool   `json:"has_oracle_jdk"`
-	CountResult   int    `json:"count_result"`
-	ScannedDirs   int    `json:"scanned_dirs"`
+	ScanTimestamp       string `json:"scan_ts"`
+	ComputerName        string `json:"computer_name"`
+	UserName            string `json:"user_name"`
+	ScanDuration        string `json:"scan_duration"`
+	HasOracleJDK        bool   `json:"has_oracle_jdk"`
+	CountResult         int    `json:"count_result"`
+	CountRequireLicense int    `json:"count_require_license"`
+	ScannedDirs         int    `json:"scanned_dirs"`
 }
 
 // JSONOutput represents the root JSON output structure
@@ -367,16 +368,18 @@ func main() {
 		}
 
 		hasOracle := false
+		countRequireLicense := 0
 		duration := formatDurationISO8601(time.Since(startTime))
 		output := JSONOutput{
 			Meta: MetaInfo{
-				ScanTimestamp: time.Now().UTC().Format(time.RFC3339),
-				ComputerName:  getComputerName(),
-				UserName:      username,
-				ScanDuration:  duration,
-				HasOracleJDK:  false,
-				CountResult:   len(results),
-				ScannedDirs:   finder.scanned,
+				ScanTimestamp:       time.Now().UTC().Format(time.RFC3339),
+				ComputerName:        getComputerName(),
+				UserName:            username,
+				ScanDuration:        duration,
+				HasOracleJDK:        false,
+				CountResult:         len(results),
+				CountRequireLicense: countRequireLicense,
+				ScannedDirs:         finder.scanned,
 			},
 			Runtimes: make([]JavaRuntimeJSON, 0),
 		}
@@ -408,10 +411,14 @@ func main() {
 			}
 
 			output.Runtimes = append(output.Runtimes, runtime)
+			if runtime.RequireLicense != nil && *runtime.RequireLicense {
+				countRequireLicense++
+			}
 		}
 
 		// Update hasOracle after scanning all results
 		output.Meta.HasOracleJDK = hasOracle
+		output.Meta.CountRequireLicense = countRequireLicense
 
 		jsonData, err := json.MarshalIndent(output, "", "  ")
 		if err != nil {

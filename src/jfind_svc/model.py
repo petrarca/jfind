@@ -25,6 +25,7 @@ class MetaInfo(BaseModel):
     scan_duration: str
     has_oracle_jdk: bool
     count_result: int
+    count_require_license: int
     scanned_dirs: int
 
 

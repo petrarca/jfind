@@ -29,6 +29,7 @@ async def save_scanner_results(session: AsyncSession, results: ScannerResults) -
         scan_duration=results.meta.scan_duration,
         has_oracle_jdk=results.meta.has_oracle_jdk,
         count_result=results.meta.count_result,
+        count_require_license=results.meta.count_require_license,
         scanned_dirs=results.meta.scanned_dirs,
     )
     session.add(scan_info)

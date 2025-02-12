@@ -26,6 +26,7 @@ class ScanInfo(Base):
     scan_duration: Mapped[str] = mapped_column(String(50))
     has_oracle_jdk: Mapped[bool] = mapped_column()
     count_result: Mapped[int] = mapped_column()
+    count_require_license: Mapped[int] = mapped_column()
     scanned_dirs: Mapped[int] = mapped_column()
     created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
 
