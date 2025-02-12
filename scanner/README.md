@@ -11,6 +11,29 @@ A cross-platform command-line tool to find and evaluate Java installations on yo
 - JSON output format with metadata
 - Configurable search depth
 - Verbose mode for detailed scanning information
+- License requirement detection for Java runtimes
+
+### License Requirement Detection
+
+When using the `-eval` flag, jfind determines if a Java runtime requires a commercial license based on the following rules:
+
+1. **OpenJDK**: Never requires a license
+   - Any runtime containing "openjdk" in its name (case-insensitive)
+   - Specifically "OpenJDK Runtime Environment"
+
+2. **Commercial Features**: Requires a license if
+   - Runtime description contains "commercial" (case-insensitive)
+
+3. **Oracle JDK Version Rules**:
+   - JDK 7: Requires license for updates > 80
+   - JDK 8: Requires license for updates > 202
+   - JDK 11: Always requires license
+   - JDK 17: Requires license for versions 17.0.13 and later
+   - JDK 18-20: No license required
+   - JDK 21+: No license required
+   - Other versions: License required by default
+
+Use the `-require-license` flag to filter and show only Java installations that require a commercial license.
 
 ## Installation
 
