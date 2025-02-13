@@ -14,7 +14,10 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync/atomic"
 	"time"
+
+	"github.com/dustin/go-humanize"
 )
 
 const (
@@ -27,7 +30,9 @@ type JavaFinder struct {
 	maxDepth  int // -1 means unlimited
 	verbose   bool
 	evaluate  bool
-	scanned   int
+	scanned   atomic.Int64
+	found     atomic.Int64
+	done      chan struct{}
 }
 
 // JavaResult represents the result of evaluating a Java executable
@@ -78,12 +83,18 @@ func NewJavaFinder(startPath string, maxDepth int, verbose bool, evaluate bool) 
 		maxDepth:  maxDepth,
 		verbose:   verbose,
 		evaluate:  evaluate,
+		done:      make(chan struct{}),
 	}
 }
 
 // logf prints to stderr
 func logf(format string, a ...interface{}) {
 	fmt.Fprintf(os.Stderr, format, a...)
+}
+
+// log prints to stderr
+func log(a ...interface{}) {
+	fmt.Fprint(os.Stderr, a...)
 }
 
 // printf prints to stdout
@@ -176,11 +187,33 @@ func printResult(result *JavaResult) {
 
 // Find searches for java executables starting from the specified path
 func (f *JavaFinder) Find() ([]*JavaResult, error) {
-	f.scanned = 0 // Reset counter
+	f.scanned.Store(0)
+	f.found.Store(0)
+
 	if f.verbose {
 		logf("Start looking for java in %s (scanning subdirectories)\n", f.startPath)
 	}
 	var results []*JavaResult
+
+	// Start progress reporting
+	go func() {
+		ticker := time.NewTicker(5 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				var builder strings.Builder
+				builder.WriteString(fmt.Sprintf("Scanned %s directories", humanize.Comma(f.scanned.Load())))
+				if f.found.Load() > 0 {
+					builder.WriteString(fmt.Sprintf(" (%s JDKs/JREs found) ", humanize.Comma(f.found.Load())))
+				}
+				builder.WriteString("...\n")
+				log(builder.String())
+			case <-f.done:
+				return
+			}
+		}
+	}()
 
 	err := filepath.Walk(f.startPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -204,7 +237,7 @@ func (f *JavaFinder) Find() ([]*JavaResult, error) {
 
 		// Count directories as we scan
 		if info.IsDir() {
-			f.scanned++
+			f.scanned.Add(1)
 		}
 
 		// Check depth
@@ -223,11 +256,14 @@ func (f *JavaFinder) Find() ([]*JavaResult, error) {
 			} else {
 				results = append(results, &JavaResult{Path: path})
 			}
+
+			f.found.Add(1)
 		}
 
 		return nil
 	})
 
+	close(f.done)
 	return results, err
 }
 
@@ -379,7 +415,7 @@ func main() {
 				HasOracleJDK:        false,
 				CountResult:         len(results),
 				CountRequireLicense: countRequireLicense,
-				ScannedDirs:         finder.scanned,
+				ScannedDirs:         int(finder.scanned.Load()),
 			},
 			Runtimes: make([]JavaRuntimeJSON, 0),
 		}
