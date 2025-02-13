@@ -214,7 +214,7 @@ func (f *JavaFinder) Find() ([]*JavaResult, error) {
 				var builder strings.Builder
 				builder.WriteString(fmt.Sprintf("Scanned %s directories", humanize.Comma(f.scanned.Load())))
 				if f.found.Load() > 0 {
-					builder.WriteString(fmt.Sprintf(" (%s JDKs/JREs found) ", humanize.Comma(f.found.Load())))
+					builder.WriteString(fmt.Sprintf(" (%s JDKs/JREs found)", humanize.Comma(f.found.Load())))
 				}
 				builder.WriteString("...\n")
 				log(builder.String())
