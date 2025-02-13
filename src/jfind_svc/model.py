@@ -27,6 +27,7 @@ class MetaInfo(BaseModel):
     count_result: int
     count_require_license: int
     scanned_dirs: int
+    scan_path: str
 
 
 class ScannerResults(BaseModel):

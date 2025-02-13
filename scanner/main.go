@@ -68,6 +68,7 @@ type MetaInfo struct {
 	CountResult         int    `json:"count_result"`
 	CountRequireLicense int    `json:"count_require_license"`
 	ScannedDirs         int    `json:"scanned_dirs"`
+	ScanPath            string `json:"scan_path"`
 }
 
 // JSONOutput represents the root JSON output structure
@@ -416,6 +417,7 @@ func main() {
 				CountResult:         len(results),
 				CountRequireLicense: countRequireLicense,
 				ScannedDirs:         int(finder.scanned.Load()),
+				ScanPath:            absPath,
 			},
 			Runtimes: make([]JavaRuntimeJSON, 0),
 		}

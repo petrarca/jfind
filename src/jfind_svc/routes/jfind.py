@@ -187,6 +187,7 @@ def _format_scan_response(scan: ScanInfo) -> dict:
             "has_oracle_jdk": scan.has_oracle_jdk,
             "count_result": scan.count_result,
             "scanned_dirs": scan.scanned_dirs,
+            "scan_path": scan.scan_path,
         },
         "result": [
             {

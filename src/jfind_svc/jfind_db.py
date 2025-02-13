@@ -31,6 +31,7 @@ async def save_scanner_results(session: AsyncSession, results: ScannerResults) -
         count_result=results.meta.count_result,
         count_require_license=results.meta.count_require_license,
         scanned_dirs=results.meta.scanned_dirs,
+        scan_path=results.meta.scan_path,
     )
     session.add(scan_info)
     await session.flush()  # Get the scan_info.id

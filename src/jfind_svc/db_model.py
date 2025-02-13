@@ -28,6 +28,7 @@ class ScanInfo(Base):
     count_result: Mapped[int] = mapped_column()
     count_require_license: Mapped[int] = mapped_column()
     scanned_dirs: Mapped[int] = mapped_column()
+    scan_path: Mapped[str] = mapped_column(String(1024))
     created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
 
     # Relationship to JavaInfo

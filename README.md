@@ -130,4 +130,37 @@ ENV=production
   - "unknown": No records found for this computer
 - `GET /health`: Health check endpoint
 
+### API Response Format
+
+The scan results endpoints return data in the following format:
+
+```json
+{
+  "meta": {
+    "scan_ts": "2025-02-04T15:12:01Z",      // Scan timestamp in UTC
+    "computer_name": "hostname",             // Name of the computer
+    "user_name": "username",                 // Name of the user
+    "scan_duration": "PT2.345S",            // Duration in ISO8601 format
+    "has_oracle_jdk": false,                // Whether Oracle JDK was found
+    "count_result": 2,                      // Number of Java installations found
+    "count_require_license": 1,             // Number of Java installations requiring license
+    "scanned_dirs": 56,                     // Number of directories scanned
+    "scan_path": "/usr/lib/jvm"             // Starting path of the scan
+  },
+  "result": [
+    {
+      "java_executable": "/path/to/java",    // Path to Java executable
+      "java_version": "11.0.20",            // Full Java version string (if -eval used)
+      "java_vendor": "Oracle Corporation",   // Java vendor (if -eval used)
+      "java_runtime": "Java(TM) SE Runtime", // Runtime name (if -eval used)
+      "is_oracle": true,                     // Whether it's Oracle Java
+      "java_version_major": 11,              // Major version number (8 for 1.8.0, 11 for 11.0.20)
+      "java_version_update": 20,             // Update version number (202 for 1.8.0_202, 20 for 11.0.20)
+      "exec_failed": true,                   // Present and true if java -version execution failed
+      "require_license": true                // Present if license requirement is determined (true/false)
+    }
+  ]
+}
+```
+
 For detailed API documentation, visit `http://localhost:8000/docs` after starting the service.
