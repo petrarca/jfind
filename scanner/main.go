@@ -158,7 +158,7 @@ func (f *JavaFinder) evaluateJava(javaPath string) JavaResult {
 }
 
 // printResult prints the results of evaluating a Java executable
-func printResult(result *JavaResult) {
+func printResult(result *JavaResult, runtime *JavaRuntimeJSON) {
 	printf("Java executable: %s\n", result.Path)
 
 	if !result.Evaluated {
@@ -182,6 +182,14 @@ func printResult(result *JavaResult) {
 
 		if strings.Contains(result.Properties.Vendor, "Oracle") {
 			printf("Warning: Oracle JDK detected\n")
+		}
+	}
+
+	if runtime != nil && runtime.RequireLicense != nil {
+		if *runtime.RequireLicense {
+			printf("Warning: This Java runtime requires a commercial license\n")
+		} else {
+			printf("This Java runtime does not require a commercial license\n")
 		}
 	}
 }
@@ -474,7 +482,21 @@ func main() {
 		}
 	} else {
 		for _, result := range results {
-			printResult(result)
+			// Create a JavaRuntimeJSON to check license if evaluation is enabled
+			var runtime *JavaRuntimeJSON
+			if evaluate && result.Properties != nil && result.Error == nil && result.ReturnCode == 0 {
+				runtime = &JavaRuntimeJSON{
+					JavaExecutable: result.Path,
+					JavaVersion:    result.Properties.Version,
+					JavaVendor:     result.Properties.Vendor,
+					JavaRuntime:    result.Properties.RuntimeName,
+					IsOracle:       strings.Contains(result.Properties.Vendor, "Oracle"),
+					VersionMajor:   result.Properties.Major,
+					VersionUpdate:  result.Properties.Update,
+				}
+				runtime.checkLicenseRequirement()
+			}
+			printResult(result, runtime)
 			printf("\n")
 		}
 	}
