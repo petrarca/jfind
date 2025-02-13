@@ -437,11 +437,10 @@ func main() {
 				if runtime.IsOracle {
 					hasOracle = true
 				}
+				runtime.checkLicenseRequirement()
 			} else if evaluate && (result.Error != nil || result.ReturnCode != 0) {
 				runtime.ExecFailed = true
 			}
-
-			runtime.checkLicenseRequirement()
 
 			// Skip if require-license is set and either the runtime doesn't require a license or the license requirement is unknown
 			if requireLicense && (runtime.RequireLicense == nil || !*runtime.RequireLicense) {

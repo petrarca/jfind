@@ -4,15 +4,12 @@ import "strings"
 
 // checkLicenseRequirement determines if a commercial license is required for the Java runtime
 func (j *JavaRuntimeJSON) checkLicenseRequirement() {
+	j.RequireLicense = new(bool)
+
 	// Only set RequireLicense for Oracle JDKs
 	if !j.IsOracle {
-		j.RequireLicense = nil
+		*j.RequireLicense = false
 		return
-	}
-
-	// Initialize the pointer if needed
-	if j.RequireLicense == nil {
-		j.RequireLicense = new(bool)
 	}
 
 	// OpenJDK never requires a license
