@@ -66,13 +66,13 @@ func parseFlags() config {
 
 	// Set custom usage message
 	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr, "Usage: %s [options]\n\n", os.Args[0])
-		fmt.Fprintf(os.Stderr, "Options:\n")
+		fmt.Fprintf(os.Stderr, "Usage: %s -path <search_path> [options]\n\n", os.Args[0])
+		fmt.Fprintln(os.Stderr, "Options:")
 		flag.PrintDefaults()
 	}
 
 	// Define flags
-	flag.StringVar(&config.startPath, "path", ".", "Start path for searching")
+	flag.StringVar(&config.startPath, "path", "", "Starting path for search (required)")
 	flag.IntVar(&config.maxDepth, "depth", -1, "Maximum depth to search (-1 for unlimited)")
 	flag.BoolVar(&config.verbose, "verbose", false, "Enable verbose output")
 	flag.BoolVar(&config.evaluate, "eval", false, "Evaluate found java executables")
@@ -87,12 +87,13 @@ func parseFlags() config {
 
 	flag.Parse()
 
-	// If help is requested, print usage and exit
-	if config.help {
+	// Show help if requested or if path is not provided
+	if config.help || config.startPath == "" {
 		flag.Usage()
-		os.Exit(0)
+		os.Exit(1)
 	}
 
+	// If posting is enabled, we need JSON output
 	if config.doPost {
 		config.jsonOutput = true
 	}

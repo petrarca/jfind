@@ -52,28 +52,28 @@ task build:all    # Build for all supported platforms
 
 Basic usage:
 ```bash
-jfind [options] [-post[=URL]]
+jfind -path <search_path> [options]
 ```
 
 ### Options
 
-- `--help`: Show help message with available options
-- `--path string`: Start path for searching (default ".")
-- `--depth int`: Maximum depth to search (-1 for unlimited)
-- `--verbose`: Enable verbose output
-- `--eval`: Evaluate found java executables
-- `--json`: Output results in JSON format
-- `--post`: Post JSON output to server (implies --json)
-- `--url string`: URL to post JSON output to (only used with --post, default http://localhost:8000/api/jfind)
-- `--require-license`: Filter only Java runtimes that require a commercial license (requires --eval)
+- `-path string`: Starting path for search (required)
+- `-depth int`: Maximum depth to search (-1 for unlimited)
+- `-verbose`: Enable verbose output
+- `-eval`: Evaluate found java executables
+- `-json`: Output results in JSON format
+- `-post`: Post JSON output to server (implies --json)
+- `-url string`: URL to post JSON output to (only used with --post, default http://localhost:8000/api/jfind)
+- `-require-license`: Filter only Java runtimes that require a commercial license (requires --eval)
+- `-h, -help`: Show help message
 
 Note: All options can be specified with either single dash (-) or double dash (--).
 
 ### Examples
 
-Find Java installations in current directory:
+Find Java installations in /usr/lib/jvm:
 ```bash
-jfind
+jfind -path /usr/lib/jvm
 ```
 
 Find and evaluate Java installations with JSON output:
@@ -99,28 +99,10 @@ Java executable: /path/to/java
 Java version: 11.0.12
 Java vendor: Oracle Corporation
 Java runtime name: Java(TM) SE Runtime Environment
-Warning: Oracle vendor detected
 ```
 
-When an Oracle JDK is detected, a warning message is printed to alert the user.
-
-#### JSON Output (-json or -post)
-
-When using `-json`, the output is written to stdout in JSON format, making it easy to pipe the results to other JSON processing tools like `jq`. When using `-post`, the JSON is sent to the specified server instead.
-
-Examples of JSON processing:
-```bash
-# Find Oracle JDKs and extract their paths
-jfind -eval -json | jq -r '.result[] | select(.is_oracle==true) | .java_executable'
-
-# Count Java installations requiring license
-jfind -eval -json | jq '.result[] | select(.require_license==true) | length'
-
-# Get all Java major versions found
-jfind -eval -json | jq -r '.result[].java_version_major' | sort -u
-```
-
-The JSON output includes metadata about the scan and the results:
+#### JSON Output
+When using the `-json` flag, output will be in JSON format:
 
 ```json
 {
@@ -128,44 +110,32 @@ The JSON output includes metadata about the scan and the results:
     "scan_ts": "2025-02-04T15:12:01Z",      // Scan timestamp in UTC
     "computer_name": "hostname",             // Name of the computer
     "user_name": "username",                 // Name of the user
-    "scan_duration": "PT2.345S",            // Duration in ISO8601 format
-    "has_oracle_jdk": false,                // Whether Oracle JDK was found
-    "count_result": 2,                      // Number of Java installations found
-    "count_require_license": 1,             // Number of Java installations requiring license
-    "scanned_dirs": 56,                     // Number of directories scanned
-    "scan_path": "/usr/lib/jvm"             // Starting path of the scan
+    "scan_duration": "PT5S",                 // Scan duration in ISO 8601
+    "has_oracle_jdk": true,                  // Whether any Oracle JDK was found
+    "count_result": 3,                       // Total number of Java executables found
+    "count_require_license": 1,              // Number requiring commercial license
+    "scanned_dirs": 150,                     // Number of directories scanned
+    "scan_path": "/usr/lib/jvm"             // Starting path for scan
   },
   "result": [
     {
       "java_executable": "/path/to/java",    // Path to Java executable
-      "java_version": "11.0.20",            // Full Java version string (if -eval used)
-      "java_vendor": "Oracle Corporation",   // Java vendor (if -eval used)
-      "java_runtime": "Java(TM) SE Runtime", // Runtime name (if -eval used)
-      "is_oracle": true,                     // Whether it's Oracle Java
-      "java_version_major": 11,              // Major version number (8 for 1.8.0, 11 for 11.0.20)
-      "java_version_update": 20,             // Update version number (202 for 1.8.0_202, 20 for 11.0.20)
-      "exec_failed": true,                   // Present and true if java -version execution failed
-      "require_license": true                // Present if license requirement is determined (true/false)
+      "java_runtime": "OpenJDK Runtime Environment", // Runtime name if evaluated
+      "java_vendor": "Eclipse Adoptium",     // Vendor if evaluated
+      "is_oracle": false,                    // Whether it's an Oracle JDK/JRE
+      "java_version": "17.0.8.1",           // Version if evaluated
+      "java_version_major": 17,             // Major version if evaluated
+      "java_version_update": 8,             // Update version if evaluated
+      "exec_failed": false,                 // True if evaluation failed
+      "require_license": false              // Whether commercial license is required
     }
   ]
 }
 ```
 
-The version fields follow Java's version scheme:
-- For Java 8 and earlier (e.g., "1.8.0_202"):
-  - `java_version_major` = 8
-  - `java_version_update` = 202
-- For Java 9+ (e.g., "11.0.20"):
-  - `java_version_major` = 11
-  - `java_version_update` = 20
-
-## Development
-
-### Running Tests
-```bash
-task test
-```
-
-### Cleaning Build Artifacts
-```bash
-task clean
+When using `-post`, this JSON will be sent to the specified server URL. The server will respond with:
+```json
+{
+  "result": "ok",
+  "scan_id": "<unique_scan_id>"
+}
