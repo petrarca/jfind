@@ -57,14 +57,17 @@ jfind [options] [-post[=URL]]
 
 ### Options
 
-- `-path string`: Start path for searching (default ".")
-- `-depth int`: Maximum depth to search (-1 for unlimited)
-- `-verbose`: Enable verbose output
-- `-eval`: Evaluate found java executables
-- `-json`: Output results in JSON format
-- `-post`: Post JSON output to server (implies --json)
-- `-url string`: URL to post JSON output to (only used with --post, default http://localhost:8000/api/jfind)
-- `-require-license`: Filter only Java runtimes that require a commercial license (requires -eval)
+- `--help`: Show help message with available options
+- `--path string`: Start path for searching (default ".")
+- `--depth int`: Maximum depth to search (-1 for unlimited)
+- `--verbose`: Enable verbose output
+- `--eval`: Evaluate found java executables
+- `--json`: Output results in JSON format
+- `--post`: Post JSON output to server (implies --json)
+- `--url string`: URL to post JSON output to (only used with --post, default http://localhost:8000/api/jfind)
+- `--require-license`: Filter only Java runtimes that require a commercial license (requires --eval)
+
+Note: All options can be specified with either single dash (-) or double dash (--).
 
 ### Examples
 
@@ -83,7 +86,7 @@ Find Java installations requiring commercial license:
 jfind -path /opt -eval -require-license
 ```
 
-Find Java installations requiring license and post to server:
+Find Java installations requiring license and post results to server:
 ```bash
 jfind -path /usr/local -eval -require-license -post
 ```

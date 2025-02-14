@@ -179,14 +179,14 @@ func printResult(result *JavaResult, runtime *JavaRuntimeJSON) {
 		printf("Java runtime name: %s\n", result.Properties.RuntimeName)
 		printf("Java major version: %d\n", result.Properties.Major)
 		printf("Java update version: %d\n", result.Properties.Update)
-
-		if strings.Contains(result.Properties.Vendor, "Oracle") {
-			printf("Warning: Oracle JDK detected\n")
-		}
 	}
 
-	if runtime != nil && runtime.RequireLicense != nil {
-		if *runtime.RequireLicense {
+	if runtime != nil {
+		if runtime.IsOracle {
+			printf("Info: Oracle JDK/JRE detected\n")
+		}
+
+		if runtime.RequireLicense != nil && *runtime.RequireLicense {
 			printf("Warning: This Java runtime requires a commercial license\n")
 		} else {
 			printf("This Java runtime does not require a commercial license\n")
@@ -194,17 +194,8 @@ func printResult(result *JavaResult, runtime *JavaRuntimeJSON) {
 	}
 }
 
-// Find searches for java executables starting from the specified path
-func (f *JavaFinder) Find() ([]*JavaResult, error) {
-	f.scanned.Store(0)
-	f.found.Store(0)
-
-	if f.verbose {
-		logf("Start looking for java in %s (scanning subdirectories)\n", f.startPath)
-	}
-	var results []*JavaResult
-
-	// Start progress reporting
+// startProgressReporting starts a goroutine to report progress periodically
+func (f *JavaFinder) startProgressReporting() {
 	go func() {
 		ticker := time.NewTicker(5 * time.Second)
 		defer ticker.Stop()
@@ -223,49 +214,82 @@ func (f *JavaFinder) Find() ([]*JavaResult, error) {
 			}
 		}
 	}()
+}
+
+// evaluateFile checks if a file is a Java executable and evaluates it if required
+func (f *JavaFinder) evaluateFile(path string, info os.FileInfo) *JavaResult {
+	if info == nil {
+		return nil
+	}
+	if !info.IsDir() && isJavaExecutable(info.Name()) && isExecutable(info) {
+		if f.evaluate {
+			result := f.evaluateJava(path)
+			return &result
+		}
+		return &JavaResult{Path: path}
+	}
+	return nil
+}
+
+// handleDirectory processes a directory during the walk
+func (f *JavaFinder) handleDirectory(path string, info os.FileInfo, err error) error {
+	if err != nil {
+		if os.IsPermission(err) {
+			if f.verbose {
+				logf("Permission denied: %s\n", path)
+			}
+			return filepath.SkipDir
+		}
+		// Skip other errors but log them in verbose mode
+		if f.verbose {
+			logf("Error accessing %s: %v\n", path, err)
+		}
+		return nil
+	}
+
+	// Print directory being scanned in verbose mode
+	if f.verbose && info.IsDir() {
+		logf("Scanning: %s\n", path)
+	}
+
+	// Count directories as we scan
+	if info.IsDir() {
+		f.scanned.Add(1)
+	}
+
+	// Check depth
+	if f.maxDepth >= 0 && f.getPathDepth(path) > f.maxDepth {
+		if info.IsDir() {
+			return filepath.SkipDir
+		}
+		return nil
+	}
+
+	return nil
+}
+
+// Find searches for java executables starting from the specified path
+func (f *JavaFinder) Find() ([]*JavaResult, error) {
+	f.scanned.Store(0)
+	f.found.Store(0)
+
+	if f.verbose {
+		logf("Start looking for java in %s (scanning subdirectories)\n", f.startPath)
+	}
+	var results []*JavaResult
+
+	// Start progress reporting
+	f.startProgressReporting()
 
 	err := filepath.Walk(f.startPath, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			if os.IsPermission(err) {
-				if f.verbose {
-					logf("Permission denied: %s\n", path)
-				}
-				return filepath.SkipDir
-			}
-			// Skip other errors but log them in verbose mode
-			if f.verbose {
-				logf("Error accessing %s: %v\n", path, err)
-			}
-			return nil
+		// Handle directory first
+		if err := f.handleDirectory(path, info, err); err != nil {
+			return err
 		}
 
-		// Print directory being scanned in verbose mode
-		if f.verbose && info.IsDir() {
-			logf("Scanning: %s\n", path)
-		}
-
-		// Count directories as we scan
-		if info.IsDir() {
-			f.scanned.Add(1)
-		}
-
-		// Check depth
-		if f.maxDepth >= 0 && f.getPathDepth(path) > f.maxDepth {
-			if info.IsDir() {
-				return filepath.SkipDir
-			}
-			return nil
-		}
-
-		// Check if file is executable and named 'java' or 'java.exe' depending on OS
-		if !info.IsDir() && isJavaExecutable(info.Name()) && isExecutable(info) {
-			if f.evaluate {
-				result := f.evaluateJava(path)
-				results = append(results, &result)
-			} else {
-				results = append(results, &JavaResult{Path: path})
-			}
-
+		// Evaluate file if it exists
+		if result := f.evaluateFile(path, info); result != nil {
+			results = append(results, result)
 			f.found.Add(1)
 		}
 
@@ -274,64 +298,6 @@ func (f *JavaFinder) Find() ([]*JavaResult, error) {
 
 	close(f.done)
 	return results, err
-}
-
-// formatDurationISO8601 formats a duration according to ISO8601 with millisecond precision
-func formatDurationISO8601(d time.Duration) string {
-	d = d.Round(time.Millisecond)
-	h := d / time.Hour
-	d -= h * time.Hour
-	m := d / time.Minute
-	d -= m * time.Minute
-	s := d / time.Second
-	d -= s * time.Second
-	ms := d / time.Millisecond
-
-	var result strings.Builder
-	result.WriteString("PT")
-	if h > 0 {
-		result.WriteString(fmt.Sprintf("%dH", h))
-	}
-	if m > 0 {
-		result.WriteString(fmt.Sprintf("%dM", m))
-	}
-	if s > 0 || ms > 0 || (h == 0 && m == 0) {
-		if ms > 0 {
-			result.WriteString(fmt.Sprintf("%d.%03dS", s, ms))
-		} else {
-			result.WriteString(fmt.Sprintf("%dS", s))
-		}
-	}
-	return result.String()
-}
-
-func getComputerName() string {
-	switch runtime.GOOS {
-	case "darwin":
-		cmd := exec.Command("scutil", "--get", "ComputerName")
-		output, err := cmd.Output()
-		if err == nil {
-			return strings.TrimSpace(string(output))
-		}
-	case "windows":
-		cmd := exec.Command("cmd", "/c", "hostname")
-		output, err := cmd.Output()
-		if err == nil {
-			return strings.TrimSpace(string(output))
-		}
-	case "linux":
-		// Try to read from /etc/hostname first
-		if data, err := os.ReadFile("/etc/hostname"); err == nil {
-			return strings.TrimSpace(string(data))
-		}
-		// Fallback to hostname command
-		cmd := exec.Command("hostname")
-		output, err := cmd.Output()
-		if err == nil {
-			return strings.TrimSpace(string(output))
-		}
-	}
-	return "unknown"
 }
 
 // sendJSON sends the JSON payload to the specified URL via HTTP POST
@@ -364,39 +330,206 @@ func sendJSON(jsonData []byte, url string) error {
 	return nil
 }
 
-func main() {
-	var startPath string
-	var maxDepth int
-	var verbose bool
-	var evaluate bool
-	var jsonOutput bool
-	var doPost bool
-	var postURL string
-	var requireLicense bool
-
-	flag.StringVar(&startPath, "path", ".", "Start path for searching")
-	flag.IntVar(&maxDepth, "depth", -1, "Maximum depth to search (-1 for unlimited)")
-	flag.BoolVar(&verbose, "verbose", false, "Enable verbose output")
-	flag.BoolVar(&evaluate, "eval", false, "Evaluate found java executables")
-	flag.BoolVar(&jsonOutput, "json", false, "Output results in JSON format")
-	flag.BoolVar(&doPost, "post", false, "Post JSON output to server (implies --json)")
-	flag.StringVar(&postURL, "url", defaultPostURL, "URL to post JSON output to (only used with --post)")
-	flag.BoolVar(&requireLicense, "require-license", false, "Filter only Java runtimes that require a commercial license")
-	flag.Parse()
-
-	if doPost {
-		jsonOutput = true
+// parseFlags parses command line flags and returns the configuration
+func parseFlags() (config struct {
+	startPath      string
+	maxDepth       int
+	verbose        bool
+	evaluate       bool
+	jsonOutput     bool
+	doPost         bool
+	postURL        string
+	requireLicense bool
+	help           bool
+}) {
+	// Set custom usage message
+	flag.Usage = func() {
+		fmt.Fprintf(os.Stderr, "Usage: %s [options]\n\n", os.Args[0])
+		fmt.Fprintf(os.Stderr, "Options:\n")
+		flag.PrintDefaults()
 	}
 
+	// Define flags
+	flag.StringVar(&config.startPath, "path", ".", "Start path for searching")
+	flag.IntVar(&config.maxDepth, "depth", -1, "Maximum depth to search (-1 for unlimited)")
+	flag.BoolVar(&config.verbose, "verbose", false, "Enable verbose output")
+	flag.BoolVar(&config.evaluate, "eval", false, "Evaluate found java executables")
+	flag.BoolVar(&config.jsonOutput, "json", false, "Output results in JSON format")
+	flag.BoolVar(&config.doPost, "post", false, "Post JSON output to server (implies --json)")
+	flag.StringVar(&config.postURL, "url", defaultPostURL, "URL to post JSON output to (only used with --post)")
+	flag.BoolVar(&config.requireLicense, "require-license", false, "Filter only Java runtimes that require a commercial license")
+
+	// Add help flags
+	flag.BoolVar(&config.help, "help", false, "Show help message")
+
+	flag.Parse()
+
+	// If help is requested, print usage and exit
+	if config.help {
+		flag.Usage()
+		os.Exit(0)
+	}
+
+	if config.doPost {
+		config.jsonOutput = true
+	}
+
+	return config
+}
+
+// createMetaInfo creates the metadata information for JSON output
+func createMetaInfo(startPath string, results []*JavaResult, finder *JavaFinder, startTime time.Time) MetaInfo {
+	currentUser, _ := user.Current()
+	username := "unknown"
+	if currentUser != nil {
+		username = currentUser.Username
+	}
+
+	duration := formatDurationISO8601(time.Since(startTime))
+	return MetaInfo{
+		ScanTimestamp:       time.Now().UTC().Format(time.RFC3339),
+		ComputerName:        getComputerName(),
+		UserName:            username,
+		ScanDuration:        duration,
+		HasOracleJDK:        false, // Will be updated later
+		CountResult:         len(results),
+		CountRequireLicense: 0, // Will be updated later
+		ScannedDirs:        int(finder.scanned.Load()),
+		ScanPath:           startPath,
+	}
+}
+
+// createRuntimeJSON creates a JavaRuntimeJSON from a JavaResult
+func createRuntimeJSON(result *JavaResult, evaluate bool) JavaRuntimeJSON {
+	runtime := JavaRuntimeJSON{
+		JavaExecutable: result.Path,
+	}
+
+	if evaluate && result.Properties != nil && result.Error == nil && result.ReturnCode == 0 {
+		runtime.JavaVersion = result.Properties.Version
+		runtime.JavaVendor = result.Properties.Vendor
+		runtime.JavaRuntime = result.Properties.RuntimeName
+		runtime.IsOracle = strings.Contains(result.Properties.Vendor, "Oracle")
+		runtime.VersionMajor = result.Properties.Major
+		runtime.VersionUpdate = result.Properties.Update
+		runtime.checkLicenseRequirement()
+	} else if evaluate && (result.Error != nil || result.ReturnCode != 0) {
+		runtime.ExecFailed = true
+	}
+
+	return runtime
+}
+
+// handleJSONOutput processes results and outputs them in JSON format
+func handleJSONOutput(results []*JavaResult, finder *JavaFinder, config struct {
+	startPath      string
+	maxDepth       int
+	verbose        bool
+	evaluate       bool
+	jsonOutput     bool
+	doPost         bool
+	postURL        string
+	requireLicense bool
+	help           bool
+}, startTime time.Time) error {
+	output := JSONOutput{
+		Meta:     createMetaInfo(config.startPath, results, finder, startTime),
+		Runtimes: make([]JavaRuntimeJSON, 0, len(results)),
+	}
+
+	hasOracle := false
+	countRequireLicense := 0
+
+	// Process each result
+	for _, result := range results {
+		runtime := createRuntimeJSON(result, config.evaluate)
+
+		if config.requireLicense && (runtime.RequireLicense == nil || !*runtime.RequireLicense) {
+			continue
+		}
+
+		if runtime.IsOracle {
+			hasOracle = true
+		}
+
+		if runtime.RequireLicense != nil && *runtime.RequireLicense {
+			countRequireLicense++
+		}
+
+		output.Runtimes = append(output.Runtimes, runtime)
+	}
+
+	// Update meta information
+	output.Meta.HasOracleJDK = hasOracle
+	output.Meta.CountRequireLicense = countRequireLicense
+
+	// Convert to JSON
+	jsonData, err := json.MarshalIndent(output, "", "  ")
+	if err != nil {
+		return fmt.Errorf("error marshaling JSON: %v", err)
+	}
+
+	// Handle output
+	if config.doPost {
+		if err := sendJSON(jsonData, config.postURL); err != nil {
+			return fmt.Errorf("error sending JSON: %v", err)
+		}
+	} else {
+		fmt.Println(string(jsonData))
+	}
+
+	return nil
+}
+
+// handleRegularOutput processes results and outputs them in regular format
+func handleRegularOutput(results []*JavaResult, config struct {
+	startPath      string
+	maxDepth       int
+	verbose        bool
+	evaluate       bool
+	jsonOutput     bool
+	doPost         bool
+	postURL        string
+	requireLicense bool
+	help           bool
+}) {
+	for _, result := range results {
+		var runtime *JavaRuntimeJSON
+		if config.evaluate && result.Properties != nil && result.Error == nil && result.ReturnCode == 0 {
+			runtime = &JavaRuntimeJSON{
+				JavaExecutable: result.Path,
+				JavaVersion:    result.Properties.Version,
+				JavaVendor:     result.Properties.Vendor,
+				JavaRuntime:    result.Properties.RuntimeName,
+				IsOracle:       strings.Contains(result.Properties.Vendor, "Oracle"),
+				VersionMajor:   result.Properties.Major,
+				VersionUpdate:  result.Properties.Update,
+			}
+			runtime.checkLicenseRequirement()
+		}
+		printResult(result, runtime)
+		printf("\n")
+	}
+}
+
+func main() {
+	config := parseFlags()
+
 	// Convert relative path to absolute
-	absPath, err := filepath.Abs(startPath)
+	absPath, err := filepath.Abs(config.startPath)
 	if err != nil {
 		logf("Error resolving path: %v\n", err)
 		os.Exit(1)
 	}
 
+	// Check if path exists
+	if _, err := os.Stat(absPath); os.IsNotExist(err) {
+		logf("Error: path '%s' does not exist\n", absPath)
+		os.Exit(1)
+	}
+
 	logf("Start scanning (platform '%s') from path '%s'\n", runtime.GOOS, absPath)
-	finder := NewJavaFinder(absPath, maxDepth, verbose, evaluate)
+	finder := NewJavaFinder(absPath, config.maxDepth, config.verbose, config.evaluate)
 	startTime := time.Now()
 	results, err := finder.Find()
 	if err != nil {
@@ -404,100 +537,12 @@ func main() {
 		os.Exit(1)
 	}
 
-	if jsonOutput {
-		// Get meta information
-		currentUser, _ := user.Current()
-		username := "unknown"
-		if currentUser != nil {
-			username = currentUser.Username
-		}
-
-		hasOracle := false
-		countRequireLicense := 0
-		duration := formatDurationISO8601(time.Since(startTime))
-		output := JSONOutput{
-			Meta: MetaInfo{
-				ScanTimestamp:       time.Now().UTC().Format(time.RFC3339),
-				ComputerName:        getComputerName(),
-				UserName:            username,
-				ScanDuration:        duration,
-				HasOracleJDK:        false,
-				CountResult:         len(results),
-				CountRequireLicense: countRequireLicense,
-				ScannedDirs:         int(finder.scanned.Load()),
-				ScanPath:            absPath,
-			},
-			Runtimes: make([]JavaRuntimeJSON, 0),
-		}
-
-		for _, result := range results {
-			runtime := JavaRuntimeJSON{
-				JavaExecutable: result.Path,
-			}
-
-			if evaluate && result.Properties != nil && result.Error == nil && result.ReturnCode == 0 {
-				runtime.JavaVersion = result.Properties.Version
-				runtime.JavaVendor = result.Properties.Vendor
-				runtime.JavaRuntime = result.Properties.RuntimeName
-				runtime.IsOracle = strings.Contains(result.Properties.Vendor, "Oracle")
-				runtime.VersionMajor = result.Properties.Major
-				runtime.VersionUpdate = result.Properties.Update
-				if runtime.IsOracle {
-					hasOracle = true
-				}
-				runtime.checkLicenseRequirement()
-			} else if evaluate && (result.Error != nil || result.ReturnCode != 0) {
-				runtime.ExecFailed = true
-			}
-
-			// Skip if require-license is set and either the runtime doesn't require a license or the license requirement is unknown
-			if requireLicense && (runtime.RequireLicense == nil || !*runtime.RequireLicense) {
-				continue
-			}
-
-			output.Runtimes = append(output.Runtimes, runtime)
-			if runtime.RequireLicense != nil && *runtime.RequireLicense {
-				countRequireLicense++
-			}
-		}
-
-		// Update hasOracle after scanning all results
-		output.Meta.HasOracleJDK = hasOracle
-		output.Meta.CountRequireLicense = countRequireLicense
-
-		jsonData, err := json.MarshalIndent(output, "", "  ")
-		if err != nil {
-			logf("Error generating JSON output: %v\n", err)
+	if config.jsonOutput {
+		if err := handleJSONOutput(results, finder, config, startTime); err != nil {
+			logf("Error: %v\n", err)
 			os.Exit(1)
 		}
-
-		if doPost {
-			logf("Posting JSON to %s...\n", postURL)
-			if err := sendJSON(jsonData, postURL); err != nil {
-				logf("Error: %v\n", err)
-				os.Exit(1)
-			}
-		} else {
-			os.Stdout.Write(jsonData)
-		}
 	} else {
-		for _, result := range results {
-			// Create a JavaRuntimeJSON to check license if evaluation is enabled
-			var runtime *JavaRuntimeJSON
-			if evaluate && result.Properties != nil && result.Error == nil && result.ReturnCode == 0 {
-				runtime = &JavaRuntimeJSON{
-					JavaExecutable: result.Path,
-					JavaVersion:    result.Properties.Version,
-					JavaVendor:     result.Properties.Vendor,
-					JavaRuntime:    result.Properties.RuntimeName,
-					IsOracle:       strings.Contains(result.Properties.Vendor, "Oracle"),
-					VersionMajor:   result.Properties.Major,
-					VersionUpdate:  result.Properties.Update,
-				}
-				runtime.checkLicenseRequirement()
-			}
-			printResult(result, runtime)
-			printf("\n")
-		}
+		handleRegularOutput(results, config)
 	}
 }
