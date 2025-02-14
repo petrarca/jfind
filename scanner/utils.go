@@ -67,3 +67,31 @@ func getComputerName() string {
 	}
 	return "unknown"
 }
+
+func isExecutable(info os.FileInfo) bool {
+	if runtime.GOOS == "windows" {
+		return true
+	}
+	return info.Mode()&0111 != 0
+}
+
+func isJavaExecutable(name string) bool {
+	name = strings.ToLower(name)
+	return name == "java" || name == "java.exe"
+}
+
+func printf(format string, a ...interface{}) {
+	fmt.Printf(format, a...)
+}
+
+// logf writes formatted output to stderr
+func logf(format string, a ...interface{}) {
+	fmt.Fprintf(os.Stderr, format, a...)
+}
+
+// log writes output to stderr
+/*
+func log(a ...interface{}) {
+	fmt.Fprintln(os.Stderr, a...)
+}
+*/

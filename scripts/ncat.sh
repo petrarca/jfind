@@ -10,9 +10,12 @@ echo "Netcating calls on port $PORT"
 
 while true; do nc -l -p $PORT <<EOF
 HTTP/1.1 200 OK
-Content-Type: text/plain
-Content-Length: 2
+Content-Type: application/json
+Content-Length: 44
+Access-Control-Allow-Origin: *
+Access-Control-Allow-Methods: POST, OPTIONS
+Access-Control-Allow-Headers: Content-Type
 
-OK
+{"result": "ok", "scan_id": "mock-scan-123"}
 EOF
 done
