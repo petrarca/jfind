@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import ForeignKey, String
+from sqlalchemy import ForeignKey, String, null
 from sqlalchemy.ext.asyncio import AsyncAttrs
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
@@ -26,10 +26,10 @@ class ScanInfo(Base):
     scan_duration: Mapped[str] = mapped_column(String(50))
     has_oracle_jdk: Mapped[bool] = mapped_column()
     count_result: Mapped[int] = mapped_column()
-    count_require_license: Mapped[int] = mapped_column()
+    count_require_license: Mapped[int] = mapped_column(nullable=True)
     scanned_dirs: Mapped[int] = mapped_column()
-    scan_path: Mapped[str] = mapped_column(String(1024))
-    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+    scan_path: Mapped[str] = mapped_column(String(1024),nullable=True)
+    created_at: Mapped[datetime] = mapped_column(default=datetime.now)
 
     # Relationship to JavaInfo
     java_runtimes: Mapped[list["JavaInfo"]] = relationship(back_populates="scan", cascade="all, delete-orphan")

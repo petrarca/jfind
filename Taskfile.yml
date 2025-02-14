@@ -73,6 +73,36 @@ tasks:
     deps:
       - install:all
 
+  db:current:
+    desc: "Show current database revision"
+    cmds:
+      - alembic current
+
+  db:downgrade:
+    desc: "Downgrade database by one version"
+    cmds:
+      - alembic downgrade -1
+
+  db:history:
+    desc: "Show migration history"
+    cmds:
+      - alembic history
+
+  db:init:
+    desc: "Initialize a fresh database at the current head revision"
+    cmds:
+      - alembic upgrade head
+
+  db:stamp:
+    desc: "Stamp the database with the given revision without running migrations"
+    cmds:
+      - alembic stamp {{.CLI_ARGS}}
+
+  db:upgrade:
+    desc: "Upgrade database to the latest version"
+    cmds:
+      - alembic upgrade head
+
   default:
     desc: "List available tasks"
     cmds:
