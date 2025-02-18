@@ -42,8 +42,6 @@ async def process_scanner_results(results: ScannerResults, session: AsyncSession
     return JSONResponse(content={"result": "ok", "scan_id": scan_info.id}, status_code=status.HTTP_200_OK)
 
 
-
-
 @router.get("/jfind", status_code=status.HTTP_200_OK)
 async def query_scans(
     computer_name: Optional[str] = None,
@@ -96,13 +94,14 @@ async def get_scans(limit: int = 10, session: AsyncSession = db_session) -> JSON
     response = [_format_scan_response_data(scan) for scan in scans]
     return JSONResponse(content=response, status_code=status.HTTP_200_OK)
 
+
 @router.get("/jfind/scans/{computer_name}", status_code=status.HTTP_200_OK)
-async def get_scans_by_computer(computer_name: str, limit: int = 10, session: AsyncSession = db_session) -> JSONResponse:
+async def get_scans_by_computer(computer_name: str, limit: int = 0, session: AsyncSession = db_session) -> JSONResponse:
     """Get scan results for a specific computer.
 
     Args:
         computer_name: Name of computer to get scans for
-        limit: Maximum number of scans to return (default: 10)
+        limit: Maximum number of scans to return, if 0 retrieve only most recent scan. If < 0 retrieve all scans (default: 0)
         session: Database session
 
     Returns:
@@ -159,7 +158,7 @@ def _format_scan_response(scan: ScanInfo) -> dict[str, any]:
     """Format a single scan result"""
     return {
         "meta": _format_scan_response_data(scan),
-        "runtimes": [_format_java_response_data(runtime) for runtime in scan.java_runtimes]
+        "runtimes": [_format_java_response_data(runtime) for runtime in scan.java_runtimes],
     }
 
 

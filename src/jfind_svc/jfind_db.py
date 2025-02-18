@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
@@ -12,15 +12,17 @@ from jfind_svc.model import ScannerResults
 
 
 async def save_scanner_results(session: AsyncSession, results: ScannerResults) -> ScanInfo:
-    """Save scanner results to the database.
+    """Save scanner results to database."""
+    # First, set most_recent=False for the current most recent record for this computer
+    await session.execute(
+        update(ScanInfo)
+        .where(
+            ScanInfo.computer_name == results.meta.computer_name,
+            ScanInfo.most_recent == True
+        )
+        .values(most_recent=False)
+    )
 
-    Args:
-        session: Database session
-        results: Scanner results from the API
-
-    Returns:
-        Created ScanInfo record
-    """
     # Create scan info record
     scan_info = ScanInfo(
         scan_ts=datetime.fromisoformat(results.meta.scan_ts),
@@ -32,6 +34,7 @@ async def save_scanner_results(session: AsyncSession, results: ScannerResults) -
         count_require_license=results.meta.count_require_license,
         scanned_dirs=results.meta.scanned_dirs,
         scan_path=results.meta.scan_path,
+        most_recent=True,  # Assumption is that records will be added
     )
     session.add(scan_info)
     await session.flush()  # Get the scan_info.id
@@ -68,6 +71,7 @@ async def get_latest_scans(session: AsyncSession, limit: int = 10) -> list[ScanI
     """
     query = (
         select(ScanInfo)
+        .where(ScanInfo.most_recent == True)
         .options(joinedload(ScanInfo.java_runtimes))  # Eagerly load relationships
         .order_by(ScanInfo.scan_ts.desc())
         .limit(limit)
@@ -95,13 +99,14 @@ async def get_scan_by_id(session: AsyncSession, scan_id: int) -> Optional[ScanIn
     return result.unique().scalar_one_or_none()
 
 
-async def get_scans_by_computer_name(session: AsyncSession, computer_name: str, limit: int = 10) -> list[ScanInfo]:
+async def get_scans_by_computer_name(session: AsyncSession, computer_name: str, limit: int = 0) -> list[ScanInfo]:
     """Get scans for a specific computer.
 
     Args:
         session: Database session
         computer_name: Name of the computer to get scans for
-        limit: Maximum number of results to return
+        limit: Maximum number of results to return. If -1, retrieve all records, if 0 retrieve only most_recent scan
+            (most_recent = True), otherwise limit scans to limit.
 
     Returns:
         List of ScanInfo records with related JavaInfo records
@@ -110,15 +115,24 @@ async def get_scans_by_computer_name(session: AsyncSession, computer_name: str, 
         select(ScanInfo)
         .options(joinedload(ScanInfo.java_runtimes))  # Eagerly load relationships
         .where(ScanInfo.computer_name == computer_name)
-        .order_by(ScanInfo.scan_ts.desc())
-        .limit(limit)
     )
+
+    if limit < 0:
+        # retrieve all records
+        pass
+    elif limit == 0:
+        # retrieve only most_recent scan (most_recent = True)
+        query = query.where(ScanInfo.most_recent == True)
+    else:
+        # limit scans to limit
+        query = query.order_by(ScanInfo.scan_ts.desc()).limit(limit)
+
     result = await session.execute(query)
     return list(result.unique().scalars().all())
 
 
 async def get_oracle_jdks(session: AsyncSession, limit: int = 10) -> list[JavaInfo]:
-    """Get all Oracle JDKs from the database.
+    """Get all Oracle JDKs from the most recent scans.
 
     Args:
         session: Database session
@@ -127,13 +141,16 @@ async def get_oracle_jdks(session: AsyncSession, limit: int = 10) -> list[JavaIn
     Returns:
         List of JavaInfo objects for Oracle JDKs
     """
-    stmt = (
+    query = (
         select(JavaInfo)
+        .options(joinedload(JavaInfo.scan))  # Eagerly load relationships
+        .join(JavaInfo.scan)
         .where(JavaInfo.is_oracle == True)  # noqa: E712
-        .order_by(JavaInfo.id.desc())
+        .where(ScanInfo.most_recent == True)
+        .order_by(ScanInfo.scan_ts.desc())
         .limit(limit)
     )
-    result = await session.execute(stmt)
+    result = await session.execute(query)
     return list(result.scalars().all())
 
 
@@ -156,9 +173,11 @@ async def check_require_license(session: AsyncSession, computer_name: str) -> Op
     # Check for Oracle JDKs on the computer
     stmt = (
         select(JavaInfo)
+        .join(JavaInfo.scan)
         .where(
             JavaInfo.computer_name == computer_name,
             JavaInfo.require_license == True,  # noqa: E712
+            ScanInfo.most_recent == True,
         )
         .limit(1)
     )

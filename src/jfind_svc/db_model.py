@@ -29,6 +29,7 @@ class ScanInfo(Base):
     count_require_license: Mapped[int] = mapped_column(nullable=True)
     scanned_dirs: Mapped[int] = mapped_column()
     scan_path: Mapped[str] = mapped_column(String(1024), nullable=True)
+    most_recent: Mapped[bool] = mapped_column(nullable=True)
     platform_info: Mapped[str] = mapped_column(String(255), nullable=True)
     created_at: Mapped[datetime] = mapped_column(default=datetime.now)
 
