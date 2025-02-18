@@ -16,10 +16,7 @@ async def save_scanner_results(session: AsyncSession, results: ScannerResults) -
     # First, set most_recent=False for the current most recent record for this computer
     await session.execute(
         update(ScanInfo)
-        .where(
-            ScanInfo.computer_name == results.meta.computer_name,
-            ScanInfo.most_recent == True
-        )
+        .where(ScanInfo.computer_name == results.meta.computer_name, ScanInfo.most_recent)
         .values(most_recent=False)
     )
 
@@ -71,7 +68,7 @@ async def get_latest_scans(session: AsyncSession, limit: int = 10) -> list[ScanI
     """
     query = (
         select(ScanInfo)
-        .where(ScanInfo.most_recent == True)
+        .where(ScanInfo.most_recent)
         .options(joinedload(ScanInfo.java_runtimes))  # Eagerly load relationships
         .order_by(ScanInfo.scan_ts.desc())
         .limit(limit)
@@ -122,7 +119,7 @@ async def get_scans_by_computer_name(session: AsyncSession, computer_name: str, 
         pass
     elif limit == 0:
         # retrieve only most_recent scan (most_recent = True)
-        query = query.where(ScanInfo.most_recent == True)
+        query = query.where(ScanInfo.most_recent)
     else:
         # limit scans to limit
         query = query.order_by(ScanInfo.scan_ts.desc()).limit(limit)
@@ -145,8 +142,8 @@ async def get_oracle_jdks(session: AsyncSession, limit: int = 10) -> list[JavaIn
         select(JavaInfo)
         .options(joinedload(JavaInfo.scan))  # Eagerly load relationships
         .join(JavaInfo.scan)
-        .where(JavaInfo.is_oracle == True)  # noqa: E712
-        .where(ScanInfo.most_recent == True)
+        .where(JavaInfo.is_oracle)  # noqa: E712
+        .where(ScanInfo.most_recent)
         .order_by(ScanInfo.scan_ts.desc())
         .limit(limit)
     )
@@ -162,7 +159,7 @@ async def check_require_license(session: AsyncSession, computer_name: str) -> Op
         computer_name: Name of computer to check
 
     Returns:
-        True if the computer has as a commerical JDK installed, False if it doesn't, None if computer not found
+        True if the computer has a commercial JDK installed, False if it doesn't, None if computer not found
     """
     # First check if we have any records for this computer
     stmt = select(JavaInfo).where(JavaInfo.computer_name == computer_name).limit(1)
@@ -176,8 +173,8 @@ async def check_require_license(session: AsyncSession, computer_name: str) -> Op
         .join(JavaInfo.scan)
         .where(
             JavaInfo.computer_name == computer_name,
-            JavaInfo.require_license == True,  # noqa: E712
-            ScanInfo.most_recent == True,
+            JavaInfo.require_license,  # noqa: E712
+            ScanInfo.most_recent,
         )
         .limit(1)
     )
