@@ -1,13 +1,13 @@
+import asyncio
 from logging.config import fileConfig
-import os
-from dotenv import load_dotenv
 
+from dotenv import load_dotenv
 from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from alembic import context
-import asyncio
+from src.jfind_svc.db_model import Base
 
 # Load environment variables from .env file
 load_dotenv()
@@ -21,15 +21,13 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# Import all models here
-from src.jfind_svc.db_model import Base, ScanInfo, JavaInfo
-
 # Set target metadata
 target_metadata = Base.metadata
 
 # Override sqlalchemy.url with environment variables or use SQLite by default
 section = config.config_ini_section
 config.set_main_option("sqlalchemy.url", "sqlite+aiosqlite:///jfind.db")
+
 
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode.

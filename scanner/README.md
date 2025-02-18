@@ -8,10 +8,10 @@ A cross-platform command-line tool to find and evaluate Java installations on yo
 - Detect Oracle JDKs (prints warning in text mode, sets is_oracle flag in JSON mode)
 - Cross-platform support (Windows, Linux, macOS)
 - Optional evaluation of Java version information
-- JSON output format with metadata
+- JSON output format with metadata (including platform information)
 - Configurable search depth
-- Verbose mode for detailed scanning information
 - License requirement detection for Java runtimes
+- Display license check rules
 
 ### License Requirement Detection
 
@@ -59,12 +59,12 @@ jfind -path <search_path> [options]
 
 - `-path string`: Starting path for search (required)
 - `-depth int`: Maximum depth to search (-1 for unlimited)
-- `-verbose`: Enable verbose output
 - `-eval`: Evaluate found java executables
 - `-json`: Output results in JSON format
 - `-post`: Post JSON output to server (implies --json)
 - `-url string`: URL to post JSON output to (only used with --post, default http://localhost:8000/api/jfind)
 - `-require-license`: Filter only Java runtimes that require a commercial license (requires --eval)
+- `-show-rules`: Display license check rules and exit
 - `-h, -help`: Show help message
 
 Note: All options can be specified with either single dash (-) or double dash (--).
@@ -89,6 +89,11 @@ jfind -path /opt -eval -require-license
 Find Java installations requiring license and post results to server:
 ```bash
 jfind -path /usr/local -eval -require-license -post
+```
+
+Display license check rules:
+```bash
+jfind -show-rules
 ```
 
 ### Output Formats

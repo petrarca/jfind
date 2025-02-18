@@ -7,11 +7,13 @@ vars:
 tasks:
   build:
     desc: Build for current platform
+    deps: [check]
     cmds:
       - go build -o {{.BINARY_NAME}}
 
   build:all:
     desc: Build for all supported platforms
+    deps: [check]
     cmds:
       - GOOS=darwin GOARCH=amd64 go build -o {{.BINARY_NAME}}-darwin-amd64
       - GOOS=darwin GOARCH=arm64 go build -o {{.BINARY_NAME}}-darwin-arm64
@@ -31,5 +33,21 @@ tasks:
 
   test:
     desc: Run tests
+    deps: [check]
     cmds:
       - go test -v ./...
+
+  check:
+    desc: Run linters
+    cmds:
+      - golangci-lint run
+
+  check:fix:
+    desc: Run linters and fix issues
+    cmds:
+      - golangci-lint run --fix
+
+  format:
+    desc: Format Go code
+    cmds:
+      - gofmt -s -w .

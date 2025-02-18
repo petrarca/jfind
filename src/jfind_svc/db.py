@@ -2,7 +2,6 @@
 
 import os
 from pathlib import Path
-from typing import Optional
 
 from dotenv import load_dotenv
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
@@ -17,9 +16,10 @@ load_dotenv(Path.home() / ".env")  # Load from ~/.env
 DEFAULT_SQLITE_URL = "sqlite+aiosqlite:///./jfind.db"
 DEFAULT_POSTGRES_URL = "postgresql+asyncpg://postgres:postgres@localhost:5432/jfind"
 
+
 def get_database_url() -> str:
     """Get database URL based on environment and configuration.
-    
+
     Priority:
     1. Command line argument (set via DATABASE_URL environment variable in main.py)
     2. Environment variable (from shell or .env files)
@@ -28,7 +28,7 @@ def get_database_url() -> str:
     # Check for explicit DATABASE_URL (from env, .env files, or command line)
     if database_url := os.getenv("DATABASE_URL"):
         return database_url
-    
+
     # Use default based on environment
     is_production = os.getenv("ENV", "development") == "production"
     return DEFAULT_POSTGRES_URL if is_production else DEFAULT_SQLITE_URL

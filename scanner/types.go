@@ -34,6 +34,7 @@ type MetaInfo struct {
 	CountRequireLicense int    `json:"count_require_license"`
 	ScannedDirs         int    `json:"scanned_dirs"`
 	ScanPath            string `json:"scan_path"`
+	PlatformInfo        string `json:"platform_info"`
 }
 
 // JSONOutput represents the root JSON output structure

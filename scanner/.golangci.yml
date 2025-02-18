@@ -1,0 +1,48 @@
+linters:
+  enable:
+    - gofmt
+    - govet
+    - errcheck
+    - staticcheck
+    - gosimple
+    - ineffassign
+    - unused
+    - misspell
+    - gocyclo
+    - gosec
+    - revive
+    - bodyclose
+
+linters-settings:
+  gocyclo:
+    min-complexity: 15
+  revive:
+    rules:
+      - name: exported
+        severity: warning
+        disabled: false
+  gosec:
+    excludes:
+      - G104 # Audit errors not checked
+      - G107 # Potential HTTP request made with variable URL - we validate URLs before use
+
+run:
+  deadline: 5m
+  tests: true
+
+issues:
+  exclude-use-default: false
+  max-issues-per-linter: 0
+  max-same-issues: 0
+  exclude-dirs:
+    - vendor
+  exclude-rules:
+    - path: post\.go
+      text: "G107: Potential HTTP request made with variable url"
+      linters:
+        - gosec
+
+output:
+  sort-results: true
+  print-issued-lines: true
+  print-linter-name: true

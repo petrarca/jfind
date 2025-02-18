@@ -17,17 +17,27 @@ const defaultPostURL = "http://localhost:8000/api/jfind"
 type config struct {
 	startPath      string
 	maxDepth       int
-	verbose        bool
 	evaluate       bool
 	jsonOutput     bool
 	doPost         bool
 	postURL        string
 	requireLicense bool
+	showRules      bool
 	help           bool
 }
 
 func main() {
 	config := parseFlags()
+
+	if config.showRules {
+		showRules()
+		os.Exit(0)
+	}
+
+	if config.help {
+		flag.Usage()
+		os.Exit(0)
+	}
 
 	// Convert relative path to absolute
 	absPath, err := filepath.Abs(config.startPath)
@@ -43,12 +53,17 @@ func main() {
 	}
 
 	logf("Start scanning (platform '%s') from path '%s'\n", runtime.GOOS, absPath)
-	finder := NewJavaFinder(absPath, config.maxDepth, config.verbose, config.evaluate)
+	finder := NewJavaFinder(absPath, config.maxDepth, config.evaluate)
 	startTime := time.Now()
 	results, err := finder.Find()
 	if err != nil {
 		logf("Error during search: %v\n", err)
 		os.Exit(1)
+	}
+
+	if finder.ticker.Load() {
+		// start newline if ticker was shown
+		logf("\n")
 	}
 
 	if config.jsonOutput {
@@ -74,14 +89,12 @@ func parseFlags() config {
 	// Define flags
 	flag.StringVar(&config.startPath, "path", "", "Starting path for search (required)")
 	flag.IntVar(&config.maxDepth, "depth", -1, "Maximum depth to search (-1 for unlimited)")
-	flag.BoolVar(&config.verbose, "verbose", false, "Enable verbose output")
-	flag.BoolVar(&config.evaluate, "eval", false, "Evaluate found java executables")
+	flag.BoolVar(&config.evaluate, "eval", false, "Retrieve properties with '-XshowSettings:properties) and analyze them")
 	flag.BoolVar(&config.jsonOutput, "json", false, "Output results in JSON format")
 	flag.BoolVar(&config.doPost, "post", false, "Post JSON output to server (implies --json)")
 	flag.StringVar(&config.postURL, "url", defaultPostURL, "URL to post JSON output to (only used with --post)")
 	flag.BoolVar(&config.requireLicense, "require-license", false, "Filter only Java runtimes that require a commercial license")
-
-	// Add help flags
+	flag.BoolVar(&config.showRules, "show-rules", false, "Display license check rules and exit")
 	flag.BoolVar(&config.help, "h", false, "Show help message")
 	flag.BoolVar(&config.help, "help", false, "Show help message")
 
@@ -119,6 +132,7 @@ func createMetaInfo(startPath string, results []*JavaResult, finder *JavaFinder,
 		CountRequireLicense: 0, // Will be updated later
 		ScannedDirs:         int(finder.scanned.Load()),
 		ScanPath:            startPath,
+		PlatformInfo:        getPlatformInfo(),
 	}
 }
 

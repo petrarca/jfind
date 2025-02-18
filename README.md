@@ -140,12 +140,13 @@ The scan results endpoints return data in the following format:
     "scan_ts": "2025-02-04T15:12:01Z",      // Scan timestamp in UTC
     "computer_name": "hostname",             // Name of the computer
     "user_name": "username",                 // Name of the user
-    "scan_duration": "PT2.345S",            // Duration in ISO8601 format
-    "has_oracle_jdk": false,                // Whether Oracle JDK was found
-    "count_result": 2,                      // Number of Java installations found
-    "count_require_license": 1,             // Number of Java installations requiring license
-    "scanned_dirs": 56,                     // Number of directories scanned
-    "scan_path": "/usr/lib/jvm"             // Starting path of the scan
+    "scan_duration": "PT1M30S",             // Scan duration in ISO 8601 duration format
+    "has_oracle_jdk": true,                 // Whether Oracle JDK was found
+    "count_result": 3,                      // Number of Java runtimes found
+    "count_require_license": 1,             // Number of runtimes requiring license
+    "scanned_dirs": 150,                    // Number of directories scanned
+    "scan_path": "/usr/lib/jvm",           // Starting path for scan
+    "platform_info": "OS=linux;Version=5.15.0;Arch=amd64;Name=Ubuntu 22.04.2 LTS"  // Platform information
   },
   "result": [
     {

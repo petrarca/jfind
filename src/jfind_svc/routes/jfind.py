@@ -8,12 +8,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from jfind_svc.db import get_session
 from jfind_svc.jfind_db import (
+    JavaInfo,
     ScanInfo,
+    check_require_license,
     get_latest_scans,
     get_oracle_jdks,
     get_scan_by_id,
     get_scans_by_computer_name,
-    has_oracle_jdk,
     save_scanner_results,
 )
 from jfind_svc.model import ScannerResults
@@ -41,20 +42,6 @@ async def process_scanner_results(results: ScannerResults, session: AsyncSession
     return JSONResponse(content={"result": "ok", "scan_id": scan_info.id}, status_code=status.HTTP_200_OK)
 
 
-@router.get("/jfind/scans", status_code=status.HTTP_200_OK)
-async def get_scans(limit: int = 10, session: AsyncSession = db_session) -> JSONResponse:
-    """Get the latest scan results.
-
-    Args:
-        limit: Maximum number of scans to return (default: 10)
-        session: Database session
-
-    Returns:
-        200 OK with list of scans and their Java runtime information
-    """
-    scans = await get_latest_scans(session, limit)
-    response = [_format_scan_response(scan) for scan in scans]
-    return JSONResponse(content=response, status_code=status.HTTP_200_OK)
 
 
 @router.get("/jfind", status_code=status.HTTP_200_OK)
@@ -94,7 +81,22 @@ async def query_scans(
     return JSONResponse(content=response, status_code=status.HTTP_200_OK)
 
 
-@router.get("/jfind/computer/{computer_name}", status_code=status.HTTP_200_OK)
+@router.get("/jfind/scans", status_code=status.HTTP_200_OK)
+async def get_scans(limit: int = 10, session: AsyncSession = db_session) -> JSONResponse:
+    """Get the latest scan results.
+
+    Args:
+        limit: Maximum number of scans to return (default: 10)
+        session: Database session
+
+    Returns:
+        200 OK with list of scans and their Java runtime information
+    """
+    scans = await get_latest_scans(session, limit)
+    response = [_format_scan_response_data(scan) for scan in scans]
+    return JSONResponse(content=response, status_code=status.HTTP_200_OK)
+
+@router.get("/jfind/scans/{computer_name}", status_code=status.HTTP_200_OK)
 async def get_scans_by_computer(computer_name: str, limit: int = 10, session: AsyncSession = db_session) -> JSONResponse:
     """Get scan results for a specific computer.
 
@@ -123,26 +125,14 @@ async def get_oracle_java_runtimes(limit: int = 10, session: AsyncSession = db_s
         200 OK with list of Oracle Java runtimes
     """
     java_infos = await get_oracle_jdks(session, limit)
-    response = [
-        {
-            "scan_id": java.scan_id,
-            "computer_name": java.computer_name,
-            "java_executable": java.java_executable,
-            "java_runtime": java.java_runtime,
-            "java_vendor": java.java_vendor,
-            "is_oracle": java.is_oracle,
-            "java_version": java.java_version,
-            "java_version_major": java.java_version_major,
-            "java_version_update": java.java_version_update,
-        }
-        for java in java_infos
-    ]
+    response = [_format_java_response_data(java_info) for java_info in java_infos]
+
     return JSONResponse(content=response, status_code=status.HTTP_200_OK)
 
 
-@router.get("/jfind/oracle/{computer_name}", status_code=status.HTTP_200_OK)
+@router.get("/jfind/require_license/{computer_name}", status_code=status.HTTP_200_OK)
 async def check_oracle_jdk(computer_name: str, session: AsyncSession = db_session) -> JSONResponse:
-    """Check if a computer has Oracle JDK installed.
+    """Check if a computer has one or more JDKs installed which require a license
 
     Args:
         computer_name: Name of computer to check
@@ -151,54 +141,53 @@ async def check_oracle_jdk(computer_name: str, session: AsyncSession = db_sessio
     Returns:
         200 OK with {
             "computer_name": str,
-            "has_oracle": "true"/"false"/"unknown"
+            "require_license": "true"/"false"/"unknown"
         }
         - "true": Computer has Oracle JDK installed
         - "false": Computer has Java records but no Oracle JDK
         - "unknown": No records found for this computer
     """
-    has_oracle = await has_oracle_jdk(session, computer_name)
-    
+    require_license = await check_require_license(session, computer_name)
+
     # Convert boolean/None to true/false/unknown
-    result = {
-        True: "true",
-        False: "false",
-        None: "unknown"
-    }[has_oracle]
-    
-    return JSONResponse(
-        content={
-            "computer_name": computer_name,
-            "has_oracle": result
-        },
-        status_code=status.HTTP_200_OK
-    )
+    result = {True: "true", False: "false", None: "unknown"}[require_license]
+
+    return JSONResponse(content={"computer_name": computer_name, "require_license": result}, status_code=status.HTTP_200_OK)
 
 
-def _format_scan_response(scan: ScanInfo) -> dict:
-    """Format a single scan result for API response."""
+def _format_scan_response(scan: ScanInfo) -> dict[str, any]:
+    """Format a single scan result"""
     return {
-        "meta": {
-            "scan_id": scan.id,
-            "scan_ts": scan.scan_ts.isoformat(),
-            "computer_name": scan.computer_name,
-            "user_name": scan.user_name,
-            "scan_duration": scan.scan_duration,
-            "has_oracle_jdk": scan.has_oracle_jdk,
-            "count_result": scan.count_result,
-            "scanned_dirs": scan.scanned_dirs,
-            "scan_path": scan.scan_path,
-        },
-        "result": [
-            {
-                "java_executable": java.java_executable,
-                "java_runtime": java.java_runtime,
-                "java_vendor": java.java_vendor,
-                "is_oracle": java.is_oracle,
-                "java_version": java.java_version,
-                "java_version_major": java.java_version_major,
-                "java_version_update": java.java_version_update,
-            }
-            for java in scan.java_runtimes
-        ],
+        "meta": _format_scan_response_data(scan),
+        "runtimes": [_format_java_response_data(runtime) for runtime in scan.java_runtimes]
+    }
+
+
+def _format_scan_response_data(scan: ScanInfo) -> dict[str, any]:
+    """Format the scan data"""
+    return {
+        "scan_id": scan.id,
+        "scan_ts": scan.scan_ts.isoformat(),
+        "computer_name": scan.computer_name,
+        "platform_info": scan.platform_info,
+        "user_name": scan.user_name,
+        "scan_duration": scan.scan_duration,
+        "has_oracle_jdk": scan.has_oracle_jdk,
+        "count_result": scan.count_result,
+        "count_require_license": scan.count_require_license,
+        "scanned_dirs": scan.scanned_dirs,
+        "scan_path": scan.scan_path,
+    }
+
+
+def _format_java_response_data(java: JavaInfo) -> dict[str, any]:
+    """Format a runtime record"""
+    return {
+        "java_executable": java.java_executable,
+        "java_runtime": java.java_runtime,
+        "java_vendor": java.java_vendor,
+        "is_oracle": java.is_oracle,
+        "java_version": java.java_version,
+        "java_version_major": java.java_version_major,
+        "java_version_update": java.java_version_update,
     }

@@ -1,8 +1,8 @@
 package main
 
 import (
-	"testing"
 	"strings"
+	"testing"
 )
 
 func TestParseJavaProperties(t *testing.T) {
@@ -30,8 +30,8 @@ java.vendor = Oracle Corporation
 java.version = 1.8.0_202
 `
 	result := JavaResult{
-		Path:      "/path/to/java",
-		StdErr:    oracleOutput,
+		Path:       "/path/to/java",
+		StdErr:     oracleOutput,
 		Properties: ParseJavaProperties(oracleOutput),
 	}
 
@@ -49,8 +49,8 @@ java.vendor = Eclipse Adoptium
 java.version = 11.0.20
 `
 	result = JavaResult{
-		Path:      "/path/to/java",
-		StdErr:    openJDKOutput,
+		Path:       "/path/to/java",
+		StdErr:     openJDKOutput,
 		Properties: ParseJavaProperties(openJDKOutput),
 	}
 

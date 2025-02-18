@@ -137,32 +137,28 @@ async def get_oracle_jdks(session: AsyncSession, limit: int = 10) -> list[JavaIn
     return list(result.scalars().all())
 
 
-async def has_oracle_jdk(session: AsyncSession, computer_name: str) -> Optional[bool]:
-    """Check if a computer has Oracle JDK installed.
+async def check_require_license(session: AsyncSession, computer_name: str) -> Optional[bool]:
+    """Check if a computer has a JDK installed which require a license.
 
     Args:
         session: Database session
         computer_name: Name of computer to check
 
     Returns:
-        True if the computer has Oracle JDK, False if it doesn't, None if computer not found
+        True if the computer has as a commerical JDK installed, False if it doesn't, None if computer not found
     """
     # First check if we have any records for this computer
-    stmt = (
-        select(JavaInfo)
-        .where(JavaInfo.computer_name == computer_name)
-        .limit(1)
-    )
+    stmt = select(JavaInfo).where(JavaInfo.computer_name == computer_name).limit(1)
     result = await session.execute(stmt)
     if result.first() is None:
         return None  # Computer not found
-    
+
     # Check for Oracle JDKs on the computer
     stmt = (
         select(JavaInfo)
         .where(
             JavaInfo.computer_name == computer_name,
-            JavaInfo.is_oracle == True,  # noqa: E712
+            JavaInfo.require_license == True,  # noqa: E712
         )
         .limit(1)
     )

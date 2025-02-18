@@ -9,28 +9,33 @@ import (
 	"strings"
 	"sync/atomic"
 	"time"
+
+	"github.com/dustin/go-humanize"
 )
 
 // JavaFinder represents a finder for Java executables
 type JavaFinder struct {
 	startPath string
 	maxDepth  int
-	verbose   bool
 	evaluate  bool
 	scanned   atomic.Int64
 	found     atomic.Int64
+	ticker    atomic.Bool
 	done      chan struct{}
 }
 
 // NewJavaFinder creates a new JavaFinder instance
-func NewJavaFinder(startPath string, maxDepth int, verbose bool, evaluate bool) *JavaFinder {
-	return &JavaFinder{
+func NewJavaFinder(startPath string, maxDepth int, evaluate bool) *JavaFinder {
+	f := &JavaFinder{
 		startPath: startPath,
 		maxDepth:  maxDepth,
-		verbose:   verbose,
 		evaluate:  evaluate,
 		done:      make(chan struct{}),
 	}
+	f.scanned.Store(0)
+	f.found.Store(0)
+	f.ticker.Store(false)
+	return f
 }
 
 // getPathDepth returns the depth of a path relative to the start path
@@ -58,6 +63,7 @@ func (f *JavaFinder) evaluateJava(javaPath string) JavaResult {
 	}
 
 	cmd := exec.Command(javaPath, "-XshowSettings:properties", "-version")
+
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 	err := cmd.Run()
@@ -80,10 +86,6 @@ func (f *JavaFinder) evaluateJava(javaPath string) JavaResult {
 
 // startProgressReporting starts a goroutine to report progress periodically
 func (f *JavaFinder) startProgressReporting() {
-	if !f.verbose {
-		return
-	}
-
 	go func() {
 		ticker := time.NewTicker(1 * time.Second)
 		defer ticker.Stop()
@@ -91,9 +93,11 @@ func (f *JavaFinder) startProgressReporting() {
 		for {
 			select {
 			case <-ticker.C:
+				f.ticker.Store(true)
 				scanned := f.scanned.Load()
 				found := f.found.Load()
-				logf("\rScanned %d directories, found %d java executables", scanned, found)
+				// no linefeed, so progress report stay on same output line
+				logf("\rScanned %s directories, found %d java executables.", humanize.Comma(scanned), found)
 			case <-f.done:
 				return
 			}
@@ -120,9 +124,10 @@ func (f *JavaFinder) evaluateFile(path string, info os.FileInfo) *JavaResult {
 func (f *JavaFinder) handleDirectory(path string, info os.FileInfo, err error) error {
 	if err != nil {
 		if os.IsPermission(err) {
-			if f.verbose {
-				logf("Permission denied: %s\n", path)
+			if f.ticker.Load() {
+				logf("\n")
 			}
+			logf("Permission denied: %s\n", path)
 			return filepath.SkipDir
 		}
 		return err
@@ -169,10 +174,6 @@ func (f *JavaFinder) Find() ([]*JavaResult, error) {
 		return nil
 	})
 
-	if f.verbose {
-		fmt.Println()
-	}
-
 	return results, err
 }
 
@@ -199,41 +200,41 @@ func createRuntimeJSON(result *JavaResult, evaluate bool) JavaRuntimeJSON {
 
 // printResult prints the results of evaluating a Java executable
 func printResult(result *JavaResult, runtime *JavaRuntimeJSON) {
-	printf("Java executable: %s\n", result.Path)
+	fmt.Printf("Java executable: %s\n", result.Path)
 
 	if !result.Evaluated {
 		return
 	}
 
 	if result.Error != nil || result.ReturnCode != 0 {
-		printf("Failed to execute: %v\n", result.Error)
+		fmt.Printf("Failed to execute: %v\n", result.Error)
 		if result.ReturnCode != 0 {
-			printf("Exit code: %d\n", result.ReturnCode)
+			fmt.Printf("Exit code: %d\n", result.ReturnCode)
 		}
 		return
 	}
 
 	if result.Properties != nil {
-		printf("Java version: %s\n", result.Properties.Version)
-		printf("Java vendor: %s\n", result.Properties.Vendor)
-		printf("Java runtime name: %s\n", result.Properties.RuntimeName)
+		fmt.Printf("Java version: %s\n", result.Properties.Version)
+		fmt.Printf("Java vendor: %s\n", result.Properties.Vendor)
+		fmt.Printf("Java runtime name: %s\n", result.Properties.RuntimeName)
 		if result.Properties.Major > 0 {
-			printf("Java major version: %d\n", result.Properties.Major)
+			fmt.Printf("Java major version: %d\n", result.Properties.Major)
 		}
 		if result.Properties.Update > 0 {
-			printf("Java update version: %d\n", result.Properties.Update)
+			fmt.Printf("Java update version: %d\n", result.Properties.Update)
 		}
 	}
 
 	if runtime != nil {
 		if runtime.IsOracle {
-			printf("Info: Oracle JDK/JRE detected\n")
+			fmt.Printf("Info: Oracle JDK/JRE detected\n")
 		}
 
 		if runtime.RequireLicense != nil && *runtime.RequireLicense {
-			printf("Warning: This Java runtime requires a commercial license\n")
+			fmt.Printf("Warning: This Java runtime requires a commercial license\n")
 		} else {
-			printf("This Java runtime does not require a commercial license\n")
+			fmt.Printf("This Java runtime does not require a commercial license\n")
 		}
 	}
 }

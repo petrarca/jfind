@@ -6,20 +6,31 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 )
 
 // sendJSON sends the JSON payload to the specified URL via HTTP POST
-func sendJSON(jsonData []byte, url string) error {
-	resp, err := http.Post(url, "application/json", bytes.NewBuffer(jsonData))
+func sendJSON(jsonData []byte, urlStr string) error {
+	// Validate URL
+	parsedURL, err := url.Parse(urlStr)
+	if err != nil || !parsedURL.IsAbs() {
+		return fmt.Errorf("invalid URL %s: %v", urlStr, err)
+	}
+
+	resp, err := http.Post(urlStr, "application/json", bytes.NewBuffer(jsonData))
 	if err != nil {
 		// Check if it's a connection error
 		if netErr, ok := err.(*net.OpError); ok {
-			return fmt.Errorf("failed to connect to server at %s: %v", url, netErr)
+			return fmt.Errorf("failed to connect to server at %s: %v", urlStr, netErr)
 		}
-		return fmt.Errorf("failed to send JSON to %s: %v", url, err)
+		return fmt.Errorf("failed to send JSON to %s: %v", urlStr, err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			fmt.Fprintf(os.Stderr, "warning: failed to close response body: %v\n", err)
+		}
+	}()
 
 	// Read response body
 	body, _ := io.ReadAll(resp.Body)
@@ -33,7 +44,10 @@ func sendJSON(jsonData []byte, url string) error {
 
 	// Write response JSON directly to stdout
 	if len(body) > 0 {
-		os.Stdout.Write(body)
+		if _, err := os.Stdout.Write(body); err != nil {
+			return fmt.Errorf("failed to write response: %v", err)
+		}
+		fmt.Println()
 	}
 
 	return nil
