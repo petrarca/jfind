@@ -114,21 +114,34 @@ ENV=production
 ## API Endpoints
 
 - `POST /jfind`: Submit Java runtime scan results
-- `GET /jfind/scans`: Get latest scan results
-- `GET /jfind/computer/{computer_name}`: Get scan results for a specific computer
-- `GET /jfind/oracle`: Get all Oracle Java runtime information
-- `GET /jfind/oracle/{computer_name}`: Check if a specific computer has Oracle JDK installed
+- `GET /jfind`: Query scan results by computer name or scan ID
+- `GET /jfind/scans`: Get latest scan results (returns only most recent scan per computer)
+- `GET /jfind/scans/{computer_name}`: Get scan results for a specific computer
+  - By default returns only the most recent scan
+  - Use `limit` parameter to control number of results:
+    - `limit=0` (default): Return only most recent scan
+    - `limit=-1`: Return all scans
+    - `limit=N`: Return N most recent scans
+- `GET /jfind/oracle`: Get Oracle Java runtime information from most recent scans
+- `GET /jfind/require_license/{computer_name}`: Check if a specific computer has JDKs that require a license (based on most recent scan)
   - Response: 
     ```json
     {
       "computer_name": "string",
-      "has_oracle": "true"|"false"|"unknown"
+      "require_license": "true"|"false"|"unknown"
     }
     ```
-  - "true": Computer has Oracle JDK installed
-  - "false": Computer has Java records but no Oracle JDK
+  - "true": Computer has JDKs requiring a license
+  - "false": Computer has Java records but no JDKs requiring a license
   - "unknown": No records found for this computer
 - `GET /health`: Health check endpoint
+
+### API Documentation
+
+The service provides comprehensive API documentation through:
+- OpenAPI/Swagger UI at `/docs`
+- ReDoc at `/redoc`
+- Raw OpenAPI specification at `/openapi.json`
 
 ### API Response Format
 
