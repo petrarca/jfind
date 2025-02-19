@@ -17,7 +17,7 @@ from jfind_svc.jfind_db import (
     get_scans_by_computer_name,
     save_scanner_results,
 )
-from jfind_svc.model import ScannerResults
+from jfind_svc.model import JavaRuntime, MetaInfo, ScannerResult
 
 router = APIRouter(tags=["jfind"])
 
@@ -26,7 +26,7 @@ db_session = Depends(get_session)
 
 
 @router.post("/jfind", status_code=status.HTTP_200_OK)
-async def process_scanner_results(results: ScannerResults, session: AsyncSession = db_session) -> JSONResponse:
+async def process_scanner_results(results: ScannerResult, session: AsyncSession = db_session) -> JSONResponse:
     """Process results from the jfind scanner.
 
     Returns:
@@ -164,29 +164,9 @@ def _format_scan_response(scan: ScanInfo) -> dict[str, any]:
 
 def _format_scan_response_data(scan: ScanInfo) -> dict[str, any]:
     """Format the scan data"""
-    return {
-        "scan_id": scan.id,
-        "scan_ts": scan.scan_ts.isoformat(),
-        "computer_name": scan.computer_name,
-        "platform_info": scan.platform_info,
-        "user_name": scan.user_name,
-        "scan_duration": scan.scan_duration,
-        "has_oracle_jdk": scan.has_oracle_jdk,
-        "count_result": scan.count_result,
-        "count_require_license": scan.count_require_license,
-        "scanned_dirs": scan.scanned_dirs,
-        "scan_path": scan.scan_path,
-    }
+    return MetaInfo.model_validate(scan).model_dump()
 
 
 def _format_java_response_data(java: JavaInfo) -> dict[str, any]:
     """Format a runtime record"""
-    return {
-        "java_executable": java.java_executable,
-        "java_runtime": java.java_runtime,
-        "java_vendor": java.java_vendor,
-        "is_oracle": java.is_oracle,
-        "java_version": java.java_version,
-        "java_version_major": java.java_version_major,
-        "java_version_update": java.java_version_update,
-    }
+    return JavaRuntime.model_validate(java).model_dump()

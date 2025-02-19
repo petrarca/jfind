@@ -1,6 +1,5 @@
 """Database operations for JFind scanner results."""
 
-from datetime import datetime
 from typing import Optional
 
 from sqlalchemy import select, update
@@ -8,39 +7,39 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
 from jfind_svc.db_model import JavaInfo, ScanInfo
-from jfind_svc.model import ScannerResults
+from jfind_svc.model import ScannerResult
 
 
-async def save_scanner_results(session: AsyncSession, results: ScannerResults) -> ScanInfo:
+async def save_scanner_results(session: AsyncSession, result: ScannerResult) -> ScanInfo:
     """Save scanner results to database."""
     # First, set most_recent=False for the current most recent record for this computer
     await session.execute(
         update(ScanInfo)
-        .where(ScanInfo.computer_name == results.meta.computer_name, ScanInfo.most_recent)
+        .where(ScanInfo.computer_name == result.meta.computer_name, ScanInfo.most_recent)
         .values(most_recent=False)
     )
 
     # Create scan info record
     scan_info = ScanInfo(
-        scan_ts=datetime.fromisoformat(results.meta.scan_ts),
-        computer_name=results.meta.computer_name,
-        user_name=results.meta.user_name,
-        scan_duration=results.meta.scan_duration,
-        has_oracle_jdk=results.meta.has_oracle_jdk,
-        count_result=results.meta.count_result,
-        count_require_license=results.meta.count_require_license,
-        scanned_dirs=results.meta.scanned_dirs,
-        scan_path=results.meta.scan_path,
+        scan_ts=result.meta.scan_ts,
+        computer_name=result.meta.computer_name,
+        user_name=result.meta.user_name,
+        scan_duration=result.meta.scan_duration,
+        has_oracle_jdk=result.meta.has_oracle_jdk,
+        count_result=result.meta.count_result,
+        count_require_license=result.meta.count_require_license,
+        scanned_dirs=result.meta.scanned_dirs,
+        scan_path=result.meta.scan_path,
         most_recent=True,  # Assumption is that records will be added
     )
     session.add(scan_info)
     await session.flush()  # Get the scan_info.id
 
     # Create java info records
-    for runtime in results.result:
+    for runtime in result.runtimes:
         java_info = JavaInfo(
             scan_id=scan_info.id,
-            computer_name=results.meta.computer_name,  # Add computer_name from scan metadata
+            computer_name=result.meta.computer_name,  # Add computer_name from scan metadata
             java_executable=runtime.java_executable,
             java_runtime=runtime.java_runtime,
             java_vendor=runtime.java_vendor,

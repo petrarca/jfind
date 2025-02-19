@@ -40,5 +40,5 @@ type MetaInfo struct {
 // JSONOutput represents the root JSON output structure
 type JSONOutput struct {
 	Meta     MetaInfo          `json:"meta"`
-	Runtimes []JavaRuntimeJSON `json:"result"`
+	Runtimes []JavaRuntimeJSON `json:"runtimes"`
 }

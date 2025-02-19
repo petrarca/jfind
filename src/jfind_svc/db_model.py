@@ -1,6 +1,6 @@
 """Database models for the JFind service."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 from sqlalchemy import ForeignKey, String
@@ -31,7 +31,7 @@ class ScanInfo(Base):
     scan_path: Mapped[str] = mapped_column(String(1024), nullable=True)
     most_recent: Mapped[bool] = mapped_column(nullable=True)
     platform_info: Mapped[str] = mapped_column(String(255), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(default=datetime.now)
+    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(timezone.utc))
 
     # Relationship to JavaInfo
     java_runtimes: Mapped[list["JavaInfo"]] = relationship(back_populates="scan", cascade="all, delete-orphan")
@@ -53,7 +53,7 @@ class JavaInfo(Base):
     java_version_major: Mapped[Optional[int]] = mapped_column(nullable=True)
     java_version_update: Mapped[Optional[int]] = mapped_column(nullable=True)
     require_license: Mapped[Optional[bool]] = mapped_column(nullable=True)
-    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(timezone.utc))
 
     # Relationship to ScanInfo
     scan: Mapped[ScanInfo] = relationship(back_populates="java_runtimes")
