@@ -4,6 +4,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import JSONResponse
+from loguru import logger
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from jfind_svc.db import get_session
@@ -37,7 +38,7 @@ async def process_scanner_results(results: ScannerResult, session: AsyncSession 
     scan_info = await save_scanner_results(session, results)
 
     # Log success
-    print(f"Saved scan from {scan_info.computer_name} with {scan_info.count_result} Java runtimes")
+    logger.info(f"Saved scan from {scan_info.computer_name} with {scan_info.count_result} Java runtimes")
 
     return JSONResponse(content={"result": "ok", "scan_id": scan_info.id}, status_code=status.HTTP_200_OK)
 

@@ -2,12 +2,14 @@
 
 import argparse
 import os
+import sys
 from contextlib import asynccontextmanager
 from typing import NamedTuple, Optional
 
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from loguru import logger
 
 from jfind_svc.db import init_db
 from jfind_svc.routes.health import router as health_router
@@ -72,6 +74,7 @@ def parse_args() -> ServerConfig:
 
 def run():
     """Run the server."""
+    logger.info("Starting JFind service")
     config = parse_args()
     if config.database_url:
         os.environ["DATABASE_URL"] = config.database_url
