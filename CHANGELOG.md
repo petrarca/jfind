@@ -12,7 +12,7 @@ To upgrade existing database:
 alembic upgrade head
 ```
 
-## [Unreleased]
+## [0.1]
 
 ### Added
 - Platform information retrieval by scanner
